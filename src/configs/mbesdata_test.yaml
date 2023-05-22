@@ -14,9 +14,12 @@ dataset:
   nbr_pings_per_patch: 100
   nbr_beams_per_patch: 400
   num_points: 2048
-  batch_size: 1 
-  num_workers: 4 
+  in_feats_dim: 1
+  batch_size: 1
+  num_workers: 1
   voxel_size: 1 # meter (voxel downsampling happens in the raw data space with metric scale)
+  scale: False # True = scale all points to [-1, 1], False = use raw data scale (meters)
+  overlap_radius: 2. # meters if scale = False, unit sphere unit if scale = True
   noise_type: crop
   rot_mag_z: 10
   trans_mag_x: 0.5
@@ -28,6 +31,6 @@ dataset:
   clip_x: 0.05
   clip_y: 0.05
   clip_z: 0.005
-  partial: [0.7,0.7] # Currently using original ModelNet40 version!
+  partial: [0.7,0.7]
   dataset_type: multibeam_npy
-  draw_items: true
+  draw_items: false
