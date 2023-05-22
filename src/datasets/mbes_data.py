@@ -6,7 +6,7 @@ from typing import List
 import numpy as np
 import open3d as o3d
 from torch.utils.data import Dataset
-from dataclasses import dataclass
+from dataclasses import dataclass, asdict
 
 import datasets.transforms as Transforms
 import common.math.se3 as se3
@@ -235,7 +235,8 @@ class MultibeamNpy(Dataset):
 
         
     def __getitem__(self, item):
-        sample = {'points': self._data[item], 'label': self._labels[item], 'idx': np.array(item,
+        # TODO: implement custom collate_fn to handle variable number of matching_inds and allow for batch_size > 1!
+        sample = {'points': self._data[item], 'label': asdict(self._labels[item]), 'idx': np.array(item,
                                                                                            dtype=np.int32)}
         
         if self._transform:
@@ -254,19 +255,22 @@ class MultibeamNpy(Dataset):
             src_feats = src_pcd.astype(np.float32)
             tgt_feats = tgt_pcd.astype(np.float32)
 
-        for k,v in sample.items():
-            if k not in ['deterministic','label', 'idx']:
-                sample[k] = torch.from_numpy(v).unsqueeze(0)
-
         if self.draw_items:
-            # draw src and tgt point clouds with matching inds
             src_pcd_o3d = to_o3d_pcd(src_pcd)
             tgt_pcd_o3d = to_o3d_pcd(tgt_pcd)
-            #src_pcd_o3d.paint_uniform_color([1, 0.706, 0])
-            #tgt_pcd_o3d.paint_uniform_color([0, 0.651, 0.929])
             o3d.visualization.draw_geometries([src_pcd_o3d, tgt_pcd_o3d])
 
-        return src_pcd,tgt_pcd,src_feats,tgt_feats,rot,trans, matching_inds, src_pcd, tgt_pcd, sample
+        return {'points_src': src_pcd,
+                'points_ref': tgt_pcd,
+                'features_src': src_feats,
+                'features_ref': tgt_feats,
+                'transform_gt': sample['transform_gt'],
+                'transform_gt_rot': rot,
+                'transform_gt_trans': trans,
+                'matching_inds': matching_inds,
+                'labels': sample['label'],
+                'idx': sample['idx']
+                }
 
     def __len__(self):
         return len(self._data)
