@@ -231,7 +231,7 @@ class MultibeamNpy(Dataset):
         with open(os.path.join(self._root, f'{self._subset}_files.txt')) as fid:
             npy_filelist = [line.strip() for line in fid]
             npy_filelist = [os.path.join(self._root, f) for f in npy_filelist]
-        self._data, self._labels = self._read_npy_files(npy_filelist)
+        self._data, self._labels = self._read_npy_files(npy_filelist, self.config.scale)
 
         
     def __getitem__(self, item):
@@ -275,7 +275,7 @@ class MultibeamNpy(Dataset):
     def __len__(self):
         return len(self._data)
 
-    def _read_npy_files(self, fnames):
+    def _read_npy_files(self, fnames, scale):
 
         all_data = []
         all_labels = []
@@ -307,7 +307,7 @@ class MultibeamNpy(Dataset):
                           f'Retained {patch.shape[0] / patch_raw.shape[0]*100:.2f}% points\n')
 
                     # Normalize points
-                    patch = self._normalize_points(patch)
+                    patch = self._normalize_points(patch, scale=scale)
                     patch_points = np.random.permutation(patch['patch_normalized'])
                     patch_label = PatchLabel(fname, ping_id_start, ping_id_end,
                                                  beam_id_start, beam_id_end,
@@ -329,12 +329,18 @@ class MultibeamNpy(Dataset):
         patch = np.asarray(pcd.points)
         return patch
 
-    def _normalize_points(self, patch):
+    def _normalize_points(self, patch, scale=False):
         centroid = np.mean(patch, axis=0)
         patch_centered = patch - centroid
-        max_dist = np.max(np.linalg.norm(patch_centered, axis=1))
+
+        max_dist = 1
+        if scale:
+            # scale the points to be in the range [-1, 1]
+            max_dist = np.max(np.linalg.norm(patch_centered, axis=1))
         patch_normalized = patch_centered / max_dist
+
         return {'patch_normalized': patch_normalized, 'centroid': centroid, 'max_dist': max_dist}
+
 
 
 @dataclass
