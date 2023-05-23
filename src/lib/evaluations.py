@@ -90,3 +90,20 @@ def fmr_wrt_inlier_ratio(distances: np.ndarray,
 
     fmr_wrt_inlier_ratio = {k: np.mean(v) for k, v in fmr_wrt_inlier_ratio.items()}
     print(f'FMR wrt inlier ratios @{distance_threshold}m:\n {fmr_wrt_inlier_ratio}')
+
+def registration_rmse(data: dict, transform_pred: np.ndarray) -> float:
+    gt_trans = to_tsfm(data['transform_gt_rot'], data['transform_gt_trans'])
+    gt_corr = get_mutual_nearest_neighbor(to_o3d_pcd(data['points_src']),
+                                          to_o3d_pcd(data['points_ref']),
+                                          gt_trans)
+
+    # Compute distances under ground truth transformation
+    points_ref = to_o3d_pcd(data['points_ref'])
+    points_src_pred_trans = to_o3d_pcd(data['points_src'])
+    points_src_pred_trans.transform(transform_pred)
+
+    corr_points_src_pred_trans = np.array(points_src_pred_trans.points)[gt_corr[:, 0]]
+    corr_points_ref = np.array(points_ref.points)[gt_corr[:, 1]]
+
+    distances = np.linalg.norm(corr_points_src_pred_trans-corr_points_ref, axis=1)
+    return distances.mean()
