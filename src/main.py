@@ -40,7 +40,7 @@ def generalized_icp(config: edict,
     eval_gt = o3d.pipelines.registration.evaluate_registration(points_src, points_ref, config.overlap_radius, transform_gt)
     eval_pred = o3d.pipelines.registration.evaluate_registration(points_src, points_ref, config.overlap_radius, predicted.transformation)
     print(f'Ground truth: {eval_gt}\nPredicted: {eval_pred}')
-    #draw_registration_results(points_src, points_ref, transform_gt, predicted.transformation)
+    draw_registration_results(points_src, points_ref, transform_gt, predicted.transformation)
     return {'gt': eval_gt, 'pred': eval_pred}
 
 
@@ -76,7 +76,7 @@ def test(config: edict):
 
 if __name__ == '__main__':
     parser = ArgumentParser()
-    parser.add_argument('--config', type=str, default='configs/mbesdata_test.yaml', help='Path to config file')
+    parser.add_argument('--config', type=str, default='configs/mbesdata_test_meters.yaml', help='Path to config file')
     args = parser.parse_args()
     config = load_config(args.config)
     config = edict(config)

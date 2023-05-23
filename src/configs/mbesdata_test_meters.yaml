@@ -22,9 +22,9 @@ dataset:
   overlap_radius: 1.5 # meters if scale = False, unit sphere unit if scale = True
   noise_type: jitter
   rot_mag_z: 10
-  trans_mag_x: 20
+  trans_mag_x: 40
   trans_mag_y: 40
-  trans_mag_z: 1
+  trans_mag_z: 2
 #  scale_x: 0.01
 #  scale_y: 0.01
 #  scale_z: 0.001
@@ -34,9 +34,9 @@ dataset:
   scale_x: 0.5 #m since scale = False
   scale_y: 0.5 #m since scale = False
   scale_z: 0.2 #m since scale = False
-  clip_x: 1. #m since scale = False
-  clip_y: 1. #m since scale = False
-  clip_z: 0.4 #m since scale = False
+  clip_x: 2.5 #m since scale = False
+  clip_y: 2.5 #m since scale = False
+  clip_z: 1. #m since scale = False
   partial: [0.7,0.7]
   dataset_type: multibeam_npy
   draw_items: false
