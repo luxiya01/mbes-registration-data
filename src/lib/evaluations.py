@@ -42,7 +42,7 @@ def get_predicted_correspondence_gt_distance(data:dict, transform_pred: np.ndarr
     corr_points_ref = np.array(points_ref.points)[corr_pred[:, 1]]
     
     # Compute Euclidean distance between GT_t((corr[src])) and corr[ref]
-    distances = np.sqrt((corr_points_src_gt_trans-corr_points_ref)**2).sum(axis=1)
+    distances = np.linalg.norm(corr_points_src_gt_trans-corr_points_ref, axis=1)
 
     return distances
 
