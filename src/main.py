@@ -7,7 +7,7 @@ import copy
 import pandas as pd
 
 from lib.utils import load_config, setup_seed
-from lib.benchmark_utils import to_o3d_pcd
+from lib.benchmark_utils import to_o3d_pcd, to_tsfm
 from datasets import mbes_data
 setup_seed(0)
 
@@ -30,7 +30,7 @@ def generalized_icp(config: edict,
                     estimation_method=o3d.pipelines.registration.TransformationEstimationForGeneralizedICP()):
     points_src = to_o3d_pcd(data['points_src'].squeeze(0))
     points_ref = to_o3d_pcd(data['points_ref'].squeeze(0))
-    transform_gt = np.vstack((data['transform_gt'].squeeze(0), np.array([0, 0, 0, 1])))
+    transform_gt = to_tsfm(data['transform_gt_rot'].squeeze(0), data['transform_gt_trans'].squeeze(0))
 
     predicted = o3d.pipelines.registration.registration_generalized_icp(
         points_src, points_ref, config.overlap_radius, np.eye(4),
