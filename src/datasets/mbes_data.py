@@ -260,7 +260,8 @@ class MultibeamNpy(Dataset):
             tgt_pcd_o3d = to_o3d_pcd(tgt_pcd)
             o3d.visualization.draw_geometries([src_pcd_o3d, tgt_pcd_o3d])
 
-        return {'points_src': src_pcd,
+        return {'points_raw': sample['points_raw'],
+                'points_src': src_pcd,
                 'points_ref': tgt_pcd,
                 'features_src': src_feats,
                 'features_ref': tgt_feats,
