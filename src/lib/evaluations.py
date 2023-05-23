@@ -53,17 +53,23 @@ def fmr_wrt_distances(distances: np.ndarray,
         distances: Euclidean distances between GT-transformed source points and reference points
                     for all pairs of point clouds in the dataset
         inlier_ratio_thresh: Inlier ratio threshold
+                             default = 5%
     """
     fmr_wrt_distances = defaultdict(list)
+    fmr_inlier_ratios = defaultdict(list)
     for distance_threshold in range(0, 20): # from 0.0 to 2.0 meters with 0.1 m step
         distance_threshold = distance_threshold / 10.
         for distance in distances:
             inlier_percentage = (distance < distance_threshold).mean()
             success = inlier_percentage > inlier_ratio_thresh
+
+            fmr_inlier_ratios[distance_threshold].append(inlier_percentage)
             fmr_wrt_distances[distance_threshold].append(success)
 
     fmr_wrt_distances = {k: np.mean(v) for k, v in fmr_wrt_distances.items()}
-    print(fmr_wrt_distances)
+    fmr_inlier_ratios = {k: np.mean(v) for k, v in fmr_inlier_ratios.items()}
+    print(f'FMR wrt distance @inlier ratio = {inlier_ratio_thresh}%:\n {fmr_wrt_distances}')
+    print(f'FMR wrt distances inlier ratio: {fmr_inlier_ratios}')
 
 def fmr_wrt_inlier_ratio(distances: np.ndarray,
                          distance_threshold=0.5) -> float:
@@ -72,6 +78,7 @@ def fmr_wrt_inlier_ratio(distances: np.ndarray,
         distances: Euclidean distances between GT-transformed source points and reference points
                     for all pairs of point clouds in the dataset
         distance_thresh: Inlier distance threshold
+                         default = 0.5m
     """
     fmr_wrt_inlier_ratio = defaultdict(list)
     for inlier_ratio in range(0, 21): # from 0.0 to 10.0 meters with 0.1 m step
@@ -82,4 +89,4 @@ def fmr_wrt_inlier_ratio(distances: np.ndarray,
             fmr_wrt_inlier_ratio[inlier_ratio].append(success)
 
     fmr_wrt_inlier_ratio = {k: np.mean(v) for k, v in fmr_wrt_inlier_ratio.items()}
-    print(fmr_wrt_inlier_ratio)
+    print(f'FMR wrt inlier ratios @{distance_threshold}m:\n {fmr_wrt_inlier_ratio}')
