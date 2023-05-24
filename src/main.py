@@ -1,4 +1,5 @@
 from argparse import ArgumentParser
+from collections import defaultdict
 from easydict import EasyDict as edict
 from torch.utils.data import DataLoader
 import torch
@@ -7,10 +8,12 @@ import open3d as o3d
 import copy
 import pandas as pd
 from tqdm import tqdm
+import logging
 
 from lib.utils import load_config, setup_seed
 from lib.benchmark_utils import to_o3d_pcd, to_tsfm
-from lib.evaluations import fmr_wrt_distances, fmr_wrt_inlier_ratio, get_predicted_correspondence_gt_distance
+from lib.evaluations import (compute_metrics, update_metrics_dict,
+                             summarize_metrics, print_metrics)
 from datasets import mbes_data
 setup_seed(0)
 
@@ -55,31 +58,51 @@ def get_datasets(config: edict):
     return train_set, val_set, test_set
 
 def test(config: edict):
+    logger = logging.getLogger(__name__)
+    logger.setLevel(logging.INFO)
+    logger.addHandler(logging.StreamHandler())
+    logger.info('Start testing...')
+
     _, _, test_set = get_datasets(config)
     test_loader = DataLoader(test_set, batch_size=config.batch_size, num_workers=config.num_workers, shuffle=False)
 
-    gt_all_distances = []
-    pred_all_distances = []
+    all_gt_metrics = {'fmr_wrt_distances': defaultdict(list),
+                  'fmr_inlier_ratio': defaultdict(list),
+                  'fmr_wrt_inlier_ratio': defaultdict(list),
+                  'registration_rmse': [],
+                  'r_mse': [], 't_mse': [], 'r_mae': [], 't_mae': [],
+                  'err_r_deg': [], 'err_t': [], 'chamfer_dist': []}
+    all_pred_metrics = copy.deepcopy(all_gt_metrics)
 
     for _, data in tqdm(enumerate(test_loader), total=len(test_set)):
         for key in data.keys():
             if isinstance(data[key], torch.Tensor):
                 data[key] = data[key].squeeze(0)
         transform_pred = generalized_icp(config, data)
-        pred_distances = get_predicted_correspondence_gt_distance(data, transform_pred)
-        pred_all_distances.append(pred_distances)
+        pred_metrics = compute_metrics(data, transform_pred)
+        all_pred_metrics = update_metrics_dict(all_pred_metrics, pred_metrics)
 
         transform_gt = to_tsfm(data['transform_gt_rot'], data['transform_gt_trans'])
-        gt_distances = get_predicted_correspondence_gt_distance(data, transform_gt)
-        gt_all_distances.append(gt_distances)
+        gt_metrics = compute_metrics(data, transform_gt)
+        all_gt_metrics = update_metrics_dict(all_gt_metrics, gt_metrics)
+
+    for key, val in all_gt_metrics.items():
+        if isinstance(val, dict):
+            for k, v in val.items():
+                all_gt_metrics[key][k] = np.array(v)
+                all_pred_metrics[key][k] = np.array(all_pred_metrics[key][k])
+        else:
+            all_gt_metrics[key] = np.array(val)
+            all_pred_metrics[key] = np.array(all_pred_metrics[key])
 
     print('Using ground truth GT:')
-    fmr_wrt_distances(gt_all_distances)
-    fmr_wrt_inlier_ratio(gt_all_distances)
+    summary_all_gt_metrics = summarize_metrics(all_gt_metrics)
+    print_metrics(logger, summary_all_gt_metrics)
+    
     print('==========================================')
     print('Using predicted transformation:')
-    fmr_wrt_distances(pred_all_distances)
-    fmr_wrt_inlier_ratio(pred_all_distances)
+    summary_all_pred_metrics = summarize_metrics(all_pred_metrics)
+    print_metrics(logger, summary_all_pred_metrics)
 
 
 if __name__ == '__main__':
