@@ -70,6 +70,11 @@ def test(config: edict):
                   'fmr_inlier_ratio': defaultdict(list),
                   'fmr_wrt_inlier_ratio': defaultdict(list),
                   'registration_rmse': [],
+                  'consistency': [],
+                  'std_of_mean': [],
+                  'std_of_points': [],
+                  'hit_by_one': [],
+                  'hit_by_both': [],
                   'r_mse': [], 't_mse': [], 'r_mae': [], 't_mae': [],
                   'err_r_deg': [], 'err_t': [], 'chamfer_dist': []}
     all_pred_metrics = copy.deepcopy(all_gt_metrics)
@@ -79,11 +84,11 @@ def test(config: edict):
             if isinstance(data[key], torch.Tensor):
                 data[key] = data[key].squeeze(0)
         transform_pred = generalized_icp(config, data)
-        pred_metrics = compute_metrics(data, transform_pred)
+        pred_metrics = compute_metrics(data, transform_pred, resolution=config.voxel_size*2)
         all_pred_metrics = update_metrics_dict(all_pred_metrics, pred_metrics)
 
         transform_gt = to_tsfm(data['transform_gt_rot'], data['transform_gt_trans'])
-        gt_metrics = compute_metrics(data, transform_gt)
+        gt_metrics = compute_metrics(data, transform_gt, resolution=config.voxel_size*2)
         all_gt_metrics = update_metrics_dict(all_gt_metrics, gt_metrics)
 
     for key, val in all_gt_metrics.items():
