@@ -10,10 +10,10 @@ dataset:
   subset_train: tmp
   subset_val: tmp
   subset_test: tmp
-  root: data/nbp22-mission2-dotson-east
+  root: mbes_data/data/nbp22-mission2-dotson-east
   nbr_pings_per_patch: 100
   nbr_beams_per_patch: 400
-  num_points: 2048
+  num_points: 5000
   in_feats_dim: 1
   batch_size: 1
   num_workers: 1
