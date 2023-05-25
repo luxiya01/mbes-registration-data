@@ -35,26 +35,31 @@ def compute_consistency_metrics(data: dict, transform_pred: np.array,
     hit_by_both = np.zeros((num_rows, num_cols))
     hit_by_one = np.zeros((num_rows, num_cols))
 
-    for row in range(num_rows):
-        for col in range(num_cols):
-            x_val = min_x + (row + 0.5) * resolution
-            y_val = min_y + (col + 0.5) * resolution
-            query = np.array([x_val, y_val])
-            std_query_radius = 0.5 * resolution
+    x = np.linspace(min_x + (0.5 * resolution), min_x + (num_rows - 1 + 0.5)*resolution, num_rows)
+    y = np.linspace(min_y + (0.5 * resolution), min_y + (num_cols - 1 + 0.5)*resolution, num_cols)
+    xv, yv = np.meshgrid(x, y)
+    queries = np.stack((xv.flatten(), yv.flatten()), axis=-1)
+    queries_tree = KDTree(queries)
+    all_points = np.concatenate((src_points, ref_points), axis=0)
+    all_points_noz = all_points[:, :2]
+    all_points_tree = KDTree(all_points_noz)
+    results = queries_tree.query_ball_tree(all_points_tree, resolution*1.5)
+    results_src = queries_tree.query_ball_tree(src_tree, resolution*.5)
+    results_ref = queries_tree.query_ball_tree(ref_tree, resolution*.5)
 
-            # Compute std for z values
-            std_src_idx = src_tree.query_ball_point(query, std_query_radius)
-            std_ref_idx = ref_tree.query_ball_point(query, std_query_radius)
-            std_of_points_metric[row, col] = np.std(np.concatenate((src_points[std_src_idx, 2], ref_points[std_ref_idx, 2])))
-            std_of_mean_metric[row, col] = np.std([np.mean(src_points[std_src_idx, 2]), np.mean(ref_points[std_ref_idx, 2])])
-            hit_by_both[row, col] = len(std_src_idx) > 0 and len(std_ref_idx) > 0
-            hit_by_one[row, col] = len(std_src_idx) > 0 or len(std_ref_idx) > 0
+    for i in range(len(results)):
+        query = queries[i]
+        row = int((query[0] - min_x) / resolution)
+        col = int((query[1] - min_y) / resolution)
+        hits = all_points[results[i]]
+        consistency_metric[row, col] = np.mean(pdist(hits))
 
-            consistency_query_radius = 1.5*resolution
-            consistency_src_idx = src_tree.query_ball_point(query, consistency_query_radius)
-            consistency_ref_idx = ref_tree.query_ball_point(query, consistency_query_radius)
-            consistency_points = np.concatenate((src_points[consistency_src_idx], ref_points[consistency_ref_idx]), axis=0)
-            consistency_metric[row, col] = np.mean(pdist(consistency_points))
+        std_src_idx = results_src[i]
+        std_ref_idx = results_ref[i]
+        std_of_points_metric[row, col] = np.std(np.concatenate((src_points[std_src_idx, 2], ref_points[std_ref_idx, 2])))
+        std_of_mean_metric[row, col] = np.std([np.mean(src_points[std_src_idx, 2]), np.mean(ref_points[std_ref_idx, 2])])
+        hit_by_both[row, col] = len(std_src_idx) > 0 and len(std_ref_idx) > 0
+        hit_by_one[row, col] = len(std_src_idx) > 0 or len(std_ref_idx) > 0
 
     mean_of_grid_with_values = lambda grid: np.mean(grid[grid > 0]) if np.sum(grid > 0) > 0 else 0
 
@@ -63,7 +68,6 @@ def compute_consistency_metrics(data: dict, transform_pred: np.array,
             'std_of_points': mean_of_grid_with_values(std_of_points_metric),
             'hit_by_both': hit_by_both.mean(),
             'hit_by_one': hit_by_one.mean()}
-
 
 def get_mutual_nearest_neighbor(points_src, points_ref, trans):
     points_src.transform(trans)
@@ -182,9 +186,8 @@ def compute_metrics(data: dict, transform_pred: np.ndarray, resolution: float) -
     """
     recall = compute_recall_metrics(data, transform_pred)
     predator_metrics = compute_overlap_predator_metrics(data, transform_pred)
-    #consistency_metrics = compute_consistency_metrics(data, transform_pred, resolution=resolution)
-    #return {**recall, **predator_metrics, **consistency_metrics}
-    return {**recall, **predator_metrics}
+    consistency_metrics = compute_consistency_metrics(data, transform_pred, resolution=resolution)
+    return {**recall, **predator_metrics, **consistency_metrics}
 
 def update_metrics_dict(metrics_dict: dict, new_metrics: dict) -> dict:
     """ Update the metrics dictionary with the new metrics. """
