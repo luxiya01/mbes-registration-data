@@ -8,10 +8,17 @@ import open3d as o3d
 from torch.utils.data import Dataset
 from dataclasses import dataclass, asdict
 
-import datasets.transforms as Transforms
-import common.math.se3 as se3
-from lib.benchmark_utils import get_correspondences, to_o3d_pcd, to_tsfm
+import mbes_data.datasets.transforms as Transforms
+import mbes_data.common.math.se3 as se3
+from mbes_data.lib.benchmark_utils import get_correspondences, to_o3d_pcd, to_tsfm
   
+def get_multibeam_datasets(args: argparse.Namespace):
+    if (args.dataset == 'multibeam'):
+        train_set, val_set = get_multibeam_train_datasets(args)
+        test_set = get_multibeam_test_datasets(args)
+    else:
+        raise NotImplementedError
+    return train_set, val_set, test_set
 
 def get_multibeam_train_datasets(args: argparse.Namespace):
     train_transforms, val_transforms = get_transforms(args.noise_type,

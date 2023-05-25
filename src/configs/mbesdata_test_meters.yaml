@@ -20,7 +20,7 @@ dataset:
   voxel_size: 1 # meter (voxel downsampling happens in the raw data space with metric scale)
   scale: False # True = scale all points to [-1, 1], False = use raw data scale (meters)
   overlap_radius: 1.5 # meters if scale = False, unit sphere unit if scale = True
-  noise_type: jitter
+  noise_type: crop
   rot_mag_z: 10
   trans_mag_x: 40
   trans_mag_y: 40
@@ -40,3 +40,4 @@ dataset:
   partial: [0.7,0.7]
   dataset_type: multibeam_npy
   draw_items: false
+  draw_registration_results: false

@@ -10,11 +10,11 @@ import pandas as pd
 from tqdm import tqdm
 import logging
 
-from lib.utils import load_config, setup_seed
-from lib.benchmark_utils import to_o3d_pcd, to_tsfm
-from lib.evaluations import (compute_metrics, update_metrics_dict,
+from mbes_data.lib.utils import load_config, setup_seed
+from mbes_data.lib.benchmark_utils import to_o3d_pcd, to_tsfm
+from mbes_data.lib.evaluations import (compute_metrics, update_metrics_dict,
                              summarize_metrics, print_metrics)
-from datasets import mbes_data
+from mbes_data.datasets.mbes_data import get_multibeam_datasets
 setup_seed(0)
 
 def draw_registration_results(source, target, transform_gt, transform_pred):
@@ -47,23 +47,13 @@ def generalized_icp(config: edict,
         draw_registration_results(points_src, points_ref, transform_gt, predicted.transformation)
     return predicted.transformation
 
-
-def get_datasets(config: edict):
-    if(config.dataset=='multibeam'):
-        train_set, val_set = mbes_data.get_multibeam_train_datasets(config)
-        test_set = mbes_data.get_multibeam_test_datasets(config)
-    else:
-        raise NotImplementedError
-
-    return train_set, val_set, test_set
-
 def test(config: edict):
     logger = logging.getLogger(__name__)
     logger.setLevel(logging.INFO)
     logger.addHandler(logging.StreamHandler())
     logger.info('Start testing...')
 
-    _, _, test_set = get_datasets(config)
+    _, _, test_set = get_multibeam_datasets(config)
     test_loader = DataLoader(test_set, batch_size=config.batch_size, num_workers=config.num_workers, shuffle=False)
 
     all_gt_metrics = {'fmr_wrt_distances': defaultdict(list),
