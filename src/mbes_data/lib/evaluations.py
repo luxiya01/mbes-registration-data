@@ -77,17 +77,22 @@ def compute_consistency_metrics(data: dict,
         row = int((query[0] - min_x) / resolution)
         col = int((query[1] - min_y) / resolution)
         hits = all_points[results[i]]
-        consistency_metric[row, col] = np.mean(pdist(hits))
+        if len(hits) > 0:
+            consistency_metric[row, col] = np.mean(pdist(hits))
 
         std_src_idx = results_src[i]
         std_ref_idx = results_ref[i]
+
+        if len(std_src_idx) == 0 and len(std_ref_idx) == 0:
+            continue
         std_of_points_metric[row, col] = np.std(
             np.concatenate((src_points[std_src_idx, 2], ref_points[std_ref_idx,
                                                                    2])))
-        std_of_mean_metric[row, col] = np.std([
-            np.mean(src_points[std_src_idx, 2]),
-            np.mean(ref_points[std_ref_idx, 2])
-        ])
+        if len(std_src_idx) > 0 and len(std_ref_idx) > 0:
+            std_of_mean_metric[row, col] = np.std([
+                np.mean(src_points[std_src_idx, 2]),
+                np.mean(ref_points[std_ref_idx, 2])
+            ])
         hit_by_both[row, col] = len(std_src_idx) > 0 and len(std_ref_idx) > 0
         hit_by_one[row, col] = len(std_src_idx) > 0 or len(std_ref_idx) > 0
 
