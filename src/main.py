@@ -13,7 +13,8 @@ import logging
 from mbes_data.lib.utils import load_config, setup_seed
 from mbes_data.lib.benchmark_utils import to_o3d_pcd, to_tsfm
 from mbes_data.lib.evaluations import (compute_metrics, update_metrics_dict,
-                             summarize_metrics, print_metrics)
+                                       summarize_metrics, print_metrics,
+                                       ALL_METRICS_TEMPLATE)
 from mbes_data.datasets.mbes_data import get_multibeam_datasets
 setup_seed(0)
 
@@ -24,10 +25,9 @@ def draw_registration_results(source, target, transform_gt, transform_pred):
     source_pred_trans = copy.deepcopy(source)
     source_pred_trans.transform(transform_pred)
 
-    # Paint source_gt_trans to yellow and source_pred_trans to blue
-    source.paint_uniform_color([1., 0, 0])
-    source_gt_trans.paint_uniform_color([1, 0.706, 0])
-    source_pred_trans.paint_uniform_color([0, 0.651, 0.929])
+    # Paint source_gt_trans to green and source_pred_trans to red
+    source_gt_trans.paint_uniform_color([0, 1, 0])
+    source_pred_trans.paint_uniform_color([1, 0, 0])
 
     o3d.visualization.draw_geometries([source, source_gt_trans, source_pred_trans, target])
 
@@ -56,29 +56,19 @@ def test(config: edict):
     _, _, test_set = get_multibeam_datasets(config)
     test_loader = DataLoader(test_set, batch_size=config.batch_size, num_workers=config.num_workers, shuffle=False)
 
-    all_gt_metrics = {'fmr_wrt_distances': defaultdict(list),
-                  'fmr_inlier_ratio': defaultdict(list),
-                  'fmr_wrt_inlier_ratio': defaultdict(list),
-                  'registration_rmse': [],
-                  'consistency': [],
-                  'std_of_mean': [],
-                  'std_of_points': [],
-                  'hit_by_one': [],
-                  'hit_by_both': [],
-                  'r_mse': [], 't_mse': [], 'r_mae': [], 't_mae': [],
-                  'err_r_deg': [], 'err_t': [], 'chamfer_dist': []}
-    all_pred_metrics = copy.deepcopy(all_gt_metrics)
+    all_gt_metrics = copy.deepcopy(ALL_METRICS_TEMPLATE)
+    all_pred_metrics = copy.deepcopy(ALL_METRICS_TEMPLATE)
 
     for _, data in tqdm(enumerate(test_loader), total=len(test_set)):
         for key in data.keys():
             if isinstance(data[key], torch.Tensor):
                 data[key] = data[key].squeeze(0)
         transform_pred = generalized_icp(config, data)
-        pred_metrics = compute_metrics(data, transform_pred, resolution=config.voxel_size*2)
+        pred_metrics = compute_metrics(data, transform_pred, config)
         all_pred_metrics = update_metrics_dict(all_pred_metrics, pred_metrics)
 
         transform_gt = to_tsfm(data['transform_gt_rot'], data['transform_gt_trans'])
-        gt_metrics = compute_metrics(data, transform_gt, resolution=config.voxel_size*2)
+        gt_metrics = compute_metrics(data, transform_gt, config)
         all_gt_metrics = update_metrics_dict(all_gt_metrics, gt_metrics)
 
     for key, val in all_gt_metrics.items():
@@ -102,9 +92,9 @@ def test(config: edict):
 
 if __name__ == '__main__':
     parser = ArgumentParser()
-    parser.add_argument('--config', type=str, default='configs/mbesdata_test_meters.yaml', help='Path to config file')
+    parser.add_argument('--mbes_config', type=str, default='mbes_data/configs/mbesdata_test_meters.yaml', help='Path to config file')
     args = parser.parse_args()
-    config = load_config(args.config)
+    config = load_config(args.mbes_config)
     config = edict(config)
     print(config)
     test(config)
