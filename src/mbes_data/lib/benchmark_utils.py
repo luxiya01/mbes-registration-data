@@ -5,6 +5,7 @@ Author: Shengyu Huang
 Last modified: 30.11.2020
 """
 
+import copy
 import os,re,sys,json,yaml,random, glob, argparse, torch, pickle
 from tqdm import tqdm
 import numpy as np
@@ -119,6 +120,9 @@ def to_o3d_feats(embedding):
     return feats
 
 def get_correspondences(src_pcd, tgt_pcd, trans, search_voxel_size, K=None):
+    src_pcd = copy.deepcopy(src_pcd)
+    tgt_pcd = copy.deepcopy(tgt_pcd)
+
     src_pcd.transform(trans)
     pcd_tree = o3d.geometry.KDTreeFlann(tgt_pcd)
 
