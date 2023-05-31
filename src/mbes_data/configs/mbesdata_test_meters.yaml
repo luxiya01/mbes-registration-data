@@ -1,8 +1,5 @@
 misc:
-  exp_dir: 'tmp'
-  mode: test
-  gpu_mode: True
-  verbose: True
+  exp_dir: 'mbes_modelnet'
 
 dataset:
   dataset: multibeam
@@ -13,7 +10,7 @@ dataset:
   root: mbes_data/data/nbp22-mission2-dotson-east
   nbr_pings_per_patch: 100
   nbr_beams_per_patch: 400
-  num_points: 5000
+  num_points: 10000
   in_feats_dim: 1
   batch_size: 1
   num_workers: 1
@@ -41,3 +38,5 @@ dataset:
   dataset_type: multibeam_npy
   draw_items: false
   draw_registration_results: false
+  savefig: false
+  draw_to_screen: false

@@ -1,5 +1,4 @@
 misc:
-  exp_dir: 'tmp'
   mode: test
   gpu_mode: True
   verbose: True
@@ -9,22 +8,22 @@ dataset:
   benchmark: multibeam
   subset_train: tmp
   subset_val: tmp
-  subset_test: tmp
+  subset_test: test
   root: mbes_data/data/nbp22-mission2-dotson-east
   nbr_pings_per_patch: 100
   nbr_beams_per_patch: 400
-  num_points: 10000
+  num_points: 5000
   in_feats_dim: 1
   batch_size: 1
   num_workers: 1
   voxel_size: 1 # meter (voxel downsampling happens in the raw data space with metric scale)
-  scale: true # True = scale all points to [-1, 1], False = use raw data scale (meters)
+  scale: True # True = scale all points to [-1, 1], False = use raw data scale (meters)
   overlap_radius: 0.04 # meters if scale = False, unit sphere unit if scale = True
   noise_type: jitter
   rot_mag_z: 10
   trans_mag_x: 0.5
   trans_mag_y: 0.5
-  trans_mag_z: 0.05 
+  trans_mag_z: 0.05
   scale_x: 0.01
   scale_y: 0.01
   scale_z: 0.001
