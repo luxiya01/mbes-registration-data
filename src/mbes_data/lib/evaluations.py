@@ -6,8 +6,29 @@ import torch
 from scipy.spatial.distance import pdist
 from scipy.spatial import KDTree
 
+from easydict import EasyDict as edict
+
 from mbes_data.common.math_torch import se3
 from mbes_data.common.math.so3 import dcm2euler
+
+ALL_METRICS_TEMPLATE = {
+  'fmr_wrt_distances': defaultdict(list),
+  'fmr_inlier_ratio': defaultdict(list),
+  'fmr_wrt_inlier_ratio': defaultdict(list),
+  'registration_mse': [],
+  'consistency': [],
+  'std_of_mean': [],
+  'std_of_points': [],
+  'hit_by_one': [],
+  'hit_by_both': [],
+  'r_mse': [],
+  't_mse': [],
+  'r_mae': [],
+  't_mae': [],
+  'err_r_deg': [],
+  'err_t': [],
+  'chamfer_dist': []
+}
 
 
 def compute_consistency_metrics(data: dict,
@@ -207,16 +228,42 @@ def compute_recall_metrics(data: dict, transform_pred: np.ndarray) -> dict:
 
 
 def compute_metrics(data: dict, transform_pred: np.ndarray,
-                    resolution: float) -> dict:
+                    config: edict) -> dict:
     """ Compute the metrics for the predicted transformation,
         including the recall metrics, the registration MSE and the
         metrics included in OverlapPredator.
     """
+    # scale data back to meter scales for metrics computation
+    # if config.scale = True (i.e. data was scaled into [-1, 1])
+    print('scaling...')
+    if config.scale:
+        scale = data['labels']['max_dist']
+        if isinstance(scale, torch.Tensor):
+            scale = scale.float().numpy()
+
+        # scale points
+        for k in ['points_src', 'points_ref', 'points_raw']:
+            data[k] *= scale
+
+        # scale translations in GT transform
+        data['transform_gt_trans'] *= scale
+        data['transform_gt'][:, 3][:, None] = data['transform_gt_trans']
+
+        # scale translations in predicted transform
+        transform_pred = np.array(transform_pred)
+        transform_pred[:3, 3] *= scale
+
+    print('compute recall...')
     recall = compute_recall_metrics(data, transform_pred)
+    print('compute predator metrics...')
     predator_metrics = compute_overlap_predator_metrics(data, transform_pred)
+
+    print('compute consistency metrics...')
+    resolution = config.voxel_size*2
     consistency_metrics = compute_consistency_metrics(data,
                                                       transform_pred,
                                                       resolution=resolution)
+    print('DONE!')
     return {**recall, **predator_metrics, **consistency_metrics}
 
 
