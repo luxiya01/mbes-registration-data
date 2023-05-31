@@ -233,7 +233,7 @@ def compute_recall_metrics(data: dict, transform_pred: np.ndarray) -> dict:
 
 
 def compute_metrics(data: dict, transform_pred: np.ndarray,
-                    config: edict) -> dict:
+                    config: edict, has_scaled: bool = False) -> dict:
     """ Compute the metrics for the predicted transformation,
         including the recall metrics, the registration MSE and the
         metrics included in OverlapPredator.
@@ -246,13 +246,14 @@ def compute_metrics(data: dict, transform_pred: np.ndarray,
         if isinstance(scale, torch.Tensor):
             scale = scale.float().numpy()
 
-        # scale points
-        for k in ['points_src', 'points_ref', 'points_raw']:
-            data[k] *= scale
-
-        # scale translations in GT transform
-        data['transform_gt_trans'] *= scale
-        data['transform_gt'][:, 3][:, None] = data['transform_gt_trans']
+        # has_scaled is only used for RPMNet that feeds in multiple transforms...
+        if not has_scaled:
+            # scale points
+            for k in ['points_src', 'points_ref', 'points_raw']:
+                data[k] *= scale
+            # scale translations in GT transform
+            data['transform_gt_trans'] *= scale
+            data['transform_gt'][:, 3][:, None] = data['transform_gt_trans']
 
         # scale translations in predicted transform
         transform_pred = np.array(transform_pred)
