@@ -1,4 +1,5 @@
 from argparse import ArgumentParser
+from collections import defaultdict
 from easydict import EasyDict as edict
 from torch.utils.data import DataLoader
 import torch
@@ -12,7 +13,7 @@ import os
 from mbes_data.lib.utils import load_config, setup_seed
 from mbes_data.lib.benchmark_utils import to_o3d_pcd, to_tsfm, to_array
 from mbes_data.datasets.mbes_data import get_multibeam_datasets
-from mbes_data.lib.evaluations import update_results
+from mbes_data.lib.evaluations import save_results_to_file, update_results
 setup_seed(0)
 
 def draw_registration_results(source, target, transform_gt, transform_pred):
@@ -72,7 +73,7 @@ def test(config: edict):
     _, _, test_set = get_multibeam_datasets(config)
     test_loader = DataLoader(test_set, batch_size=config.batch_size, num_workers=config.num_workers, shuffle=False)
 
-    results = {}
+    results = defaultdict(dict)
     for _, data in tqdm(enumerate(test_loader), total=len(test_set)):
         for key in data.keys():
             if isinstance(data[key], torch.Tensor):
@@ -89,7 +90,7 @@ def test(config: edict):
             raise NotImplementedError(f'Unknown icp variant: {config.icp_variant}')
 
         results = update_results(results, data, transform_pred)
-    np.savez(config.results_path, results=results, config=config, allow_pickle=True)
+    save_results_to_file(logger, results, config)
 
 if __name__ == '__main__':
     parser = ArgumentParser()

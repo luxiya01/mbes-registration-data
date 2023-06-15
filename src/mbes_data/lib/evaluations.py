@@ -16,8 +16,15 @@ from mbes_data.common.math.so3 import dcm2euler
 
 def update_results(results: dict, data: dict, transform_pred: torch.Tensor):
     """Helper function to update the results dict with the new data and predicted transform."""
+
+    filename = data['labels']['fname']
+    if isinstance(filename, list):
+        assert len(filename) == 1
+        filename = filename[0]
+    filename = filename.split('/')[-1].split('.')[0]
+
     idx = int(data['idx'])
-    results[idx] = {
+    results[filename][idx] = {
         'labels': data['labels'],
         'points_src': to_array(data['points_src']),
         'points_ref': to_array(data['points_ref']),
@@ -28,6 +35,16 @@ def update_results(results: dict, data: dict, transform_pred: torch.Tensor):
         'transform_pred': to_array(transform_pred),
     }
     return results
+
+def save_results_to_file(logger: logging.Logger, results: dict, config: edict):
+    """ Save the results to file, separated by data filenames."""
+    for filename, file_res in results.items():
+        logger.info('Saving results for {} to {}'.format(filename, config.exp_dir))
+        np.savez(f'{config.exp_dir}/{filename}_res.npz',
+                 results=file_res,
+                 config=config,
+                 allow_pickle=True)
+
 
 def compute_metrics_from_results(logger: logging.Logger, results_file: str, use_transform: str = 'null', print: bool = True):
     """ Compute metrics from the results file and log to logger."""
