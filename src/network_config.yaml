@@ -1,0 +1,2 @@
+model:
+  icp_variant: 'icp_point_to_plane' # one of [gicp, icp_point_to_plane, icp_point_to_point]
