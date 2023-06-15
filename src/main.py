@@ -12,6 +12,7 @@ import os
 from mbes_data.lib.utils import load_config, setup_seed
 from mbes_data.lib.benchmark_utils import to_o3d_pcd, to_tsfm, to_array
 from mbes_data.datasets.mbes_data import get_multibeam_datasets
+from mbes_data.lib.evaluations import update_results
 setup_seed(0)
 
 def draw_registration_results(source, target, transform_gt, transform_pred):
@@ -87,17 +88,7 @@ def test(config: edict):
         else:
             raise NotImplementedError(f'Unknown icp variant: {config.icp_variant}')
 
-        idx = int(data['idx'])
-        results[idx] = {
-            'labels': data['labels'],
-            'points_src': to_array(data['points_src']),
-            'points_ref': to_array(data['points_ref']),
-            'points_raw': to_array(data['points_raw']),
-            'transform_gt': to_array(data['transform_gt']),
-            'transform_gt_rot': to_array(data['transform_gt_rot']),
-            'transform_gt_trans': to_array(data['transform_gt_trans']),
-            'transform_pred': to_array(transform_pred),
-        }
+        results = update_results(results, data, transform_pred)
     np.savez(config.results_path, results=results, config=config, allow_pickle=True)
 
 if __name__ == '__main__':

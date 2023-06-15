@@ -7,13 +7,29 @@ from scipy.spatial.distance import pdist
 from scipy.spatial import KDTree
 import copy
 import logging
+from tqdm import tqdm
 
 from easydict import EasyDict as edict
 
 from mbes_data.common.math_torch import se3
 from mbes_data.common.math.so3 import dcm2euler
 
-def compute_metrics_from_results(logger: logging.Logger, results_file: str, use_transform: str = 'null'):
+def update_results(results: dict, data: dict, transform_pred: torch.Tensor):
+    """Helper function to update the results dict with the new data and predicted transform."""
+    idx = int(data['idx'])
+    results[idx] = {
+        'labels': data['labels'],
+        'points_src': to_array(data['points_src']),
+        'points_ref': to_array(data['points_ref']),
+        'points_raw': to_array(data['points_raw']),
+        'transform_gt': to_array(data['transform_gt']),
+        'transform_gt_rot': to_array(data['transform_gt_rot']),
+        'transform_gt_trans': to_array(data['transform_gt_trans']),
+        'transform_pred': to_array(transform_pred),
+    }
+    return results
+
+def compute_metrics_from_results(logger: logging.Logger, results_file: str, use_transform: str = 'null', print: bool = True):
     """ Compute metrics from the results file and log to logger."""
     if use_transform not in ['null', 'pred', 'gt']:
         raise ValueError('Invalid use_transform arg: {}. Supports [null, pred, gt]'.format(use_transform))
@@ -25,7 +41,7 @@ def compute_metrics_from_results(logger: logging.Logger, results_file: str, use_
     config = file_content['config'].item()
 
     all_metrics = copy.deepcopy(ALL_METRICS_TEMPLATE)
-    for i, data in results.items():
+    for _, data in tqdm(results.items(), total=len(results)):
         if use_transform == 'pred':
             pred_transform = data['transform_pred']
         elif use_transform == 'gt':
@@ -35,7 +51,8 @@ def compute_metrics_from_results(logger: logging.Logger, results_file: str, use_
         data_metric = compute_metrics(data, pred_transform, config)
         all_metrics = update_metrics_dict(all_metrics, data_metric)
     summary = summarize_metrics(all_metrics)
-    print_metrics(logger, summary, title=f'{use_transform.upper()} Metrics')
+    if print:
+        print_metrics(logger, summary, title=f'{use_transform.upper()} Metrics')
     return {'all_metrics': all_metrics, 'summary': summary}
 
 #========================================================================================
