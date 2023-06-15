@@ -1,15 +1,46 @@
 from collections import defaultdict
 import numpy as np
 import open3d as o3d
-from mbes_data.lib.benchmark_utils import to_o3d_pcd, to_tsfm, to_array
+from mbes_data.lib.benchmark_utils import to_o3d_pcd, to_tsfm, to_array, to_tensor
 import torch
 from scipy.spatial.distance import pdist
 from scipy.spatial import KDTree
+import copy
+import logging
 
 from easydict import EasyDict as edict
 
 from mbes_data.common.math_torch import se3
 from mbes_data.common.math.so3 import dcm2euler
+
+def compute_metrics_from_results(logger: logging.Logger, results_file: str, use_transform: str = 'null'):
+    """ Compute metrics from the results file and log to logger."""
+    if use_transform not in ['null', 'pred', 'gt']:
+        raise ValueError('Invalid use_transform arg: {}. Supports [null, pred, gt]'.format(use_transform))
+    logging.info('Computing metrics using {} tranform from results file: {}'
+                 .format(use_transform, results_file))
+
+    file_content = np.load(results_file, allow_pickle=True)
+    results = file_content['results'].item()
+    config = file_content['config'].item()
+
+    all_metrics = copy.deepcopy(ALL_METRICS_TEMPLATE)
+    for i, data in results.items():
+        if use_transform == 'pred':
+            pred_transform = data['transform_pred']
+        elif use_transform == 'gt':
+            pred_transform = to_tsfm(data['transform_gt_rot'], data['transform_gt_trans'])
+        else:
+            pred_transform = np.eye(4) # null transform
+        data_metric = compute_metrics(data, pred_transform, config)
+        all_metrics = update_metrics_dict(all_metrics, data_metric)
+    summary = summarize_metrics(all_metrics)
+    print_metrics(logger, summary, title=f'{use_transform.upper()} Metrics')
+    return {'all_metrics': all_metrics, 'summary': summary}
+
+#========================================================================================
+# Below: Point cloud registration metrics computation
+#========================================================================================
 
 ALL_METRICS_TEMPLATE = {
   'fmr_wrt_distances': defaultdict(list),
@@ -240,7 +271,6 @@ def compute_metrics(data: dict, transform_pred: np.ndarray,
     """
     # scale data back to meter scales for metrics computation
     # if config.scale = True (i.e. data was scaled into [-1, 1])
-    print('scaling...')
     if config.scale:
         scale = data['labels']['max_dist']
         if isinstance(scale, torch.Tensor):
@@ -259,17 +289,13 @@ def compute_metrics(data: dict, transform_pred: np.ndarray,
         transform_pred = np.array(transform_pred)
         transform_pred[:3, 3] *= scale
 
-    print('compute recall...')
     recall = compute_recall_metrics(data, transform_pred)
-    print('compute predator metrics...')
     predator_metrics = compute_overlap_predator_metrics(data, transform_pred)
 
-    print('compute consistency metrics...')
     resolution = config.voxel_size*2
     consistency_metrics = compute_consistency_metrics(data,
                                                       transform_pred,
                                                       resolution=resolution)
-    print('DONE!')
     return {**recall, **predator_metrics, **consistency_metrics}
 
 
@@ -299,10 +325,10 @@ def compute_overlap_predator_metrics(data, pred_transforms):
     with torch.no_grad():
         pred_transforms = torch.from_numpy(pred_transforms).float().unsqueeze(
             0)
-        gt_transforms = data['transform_gt'].unsqueeze(0)
-        points_src = data['points_src'][..., :3].unsqueeze(0)
-        points_ref = data['points_ref'][..., :3].unsqueeze(0)
-        points_raw = data['points_raw'][..., :3].unsqueeze(0)
+        gt_transforms = to_tensor(data['transform_gt']).unsqueeze(0)
+        points_src = to_tensor(data['points_src'][..., :3]).unsqueeze(0)
+        points_ref = to_tensor(data['points_ref'][..., :3]).unsqueeze(0)
+        points_raw = to_tensor(data['points_raw'][..., :3]).unsqueeze(0)
 
         # Euler angles, Individual translation errors (Deep Closest Point convention)
         # TODO Change rotation to torch operations
@@ -359,6 +385,7 @@ def print_metrics(logger,
                   title='Metrics'):
     """Prints out formated metrics to logger (From OverlapPredator)"""
 
+    logger.info('=' * 60)
     logger.info(title + ':')
     logger.info('=' * (len(title) + 1))
 
@@ -367,6 +394,7 @@ def print_metrics(logger,
             ['{:.5f}'.format(c) for c in losses_by_iteration])
         logger.info('Losses by iteration: {}'.format(losses_all_str))
 
+    logger.info('----------------')
     logger.info(
         'DeepCP metrics:{:.4f}(rot-rmse) | {:.4f}(rot-mae) | {:.4g}(trans-rmse) | {:.4g}(trans-mae)'
         .format(
@@ -383,7 +411,8 @@ def print_metrics(logger,
         summary_metrics['chamfer_dist']))
 
     # Log registration RMSE and % pairs with <= x meters RMSE
-    logger.info('\nRegistration RMSE: {:.4f}(meters)'.format(
+    logger.info('----------------')
+    logger.info('Registration RMSE: {:.4f}(meters)'.format(
         summary_metrics['registration_rmse']))
     logger.info('%pairs with <= x meters RMSE|{}'.format(' | '.join(
         ['{:.2f}m'.format(c) for c in np.arange(0, 2, 0.1)])))
@@ -394,7 +423,8 @@ def print_metrics(logger,
     ])))
 
     # Log FMR wrt distances (meters)
-    logger.info('\nFMR wrt distances thresholds (m)|{}'.format(' | '.join([
+    logger.info('----------------')
+    logger.info('FMR wrt distances thresholds (m)|{}'.format(' | '.join([
         '{:.2f}m'.format(c)
         for c in summary_metrics['fmr_wrt_distances'].keys()
     ])))
@@ -408,7 +438,8 @@ def print_metrics(logger,
     ])))
 
     # Log FMR wrt inlier ratio
-    logger.info('\nInlier ratio thresholds (%)|{}'.format(' | '.join([
+    logger.info('----------------')
+    logger.info('Inlier ratio thresholds (%)|{}'.format(' | '.join([
         '{:.2f}%'.format(c * 100)
         for c in summary_metrics['fmr_wrt_inlier_ratio'].keys()
     ])))
@@ -418,7 +449,8 @@ def print_metrics(logger,
     ])))
 
     # Log consistency metrics
-    logger.info('\nConsistency metrics: {:.4f}'.format(
+    logger.info('----------------')
+    logger.info('Consistency metrics: {:.4f}'.format(
         summary_metrics['consistency']))
     logger.info('std of mean(z) values: {:.4f}'.format(
         summary_metrics['std_of_mean']))
@@ -432,10 +464,22 @@ def print_metrics(logger,
         'perc.overlapping grids (hit by both/hit by one): {:.2f}%'.format(
             summary_metrics['hit_by_both'] / summary_metrics['hit_by_one'] *
             100))
+    logger.info('----------------')
+    logger.info('END OF METRICS LOGGING!')
+    logger.info('=' * 60)
 
 
 def summarize_metrics(metrics):
     """Summaries computed metrices by taking mean over all data instances (From OverlapPredator)"""
+
+    # Convert everything to numpy arrays
+    for key, value in metrics.items():
+        if isinstance(value, dict):
+            for k, v in value.items():
+                metrics[key][k] = np.array(v)
+        else:
+            metrics[key] = np.array(value)
+
     summarized = {}
     for k in metrics:
         if k == 'registration_mse':
