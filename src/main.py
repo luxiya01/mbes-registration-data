@@ -1,21 +1,16 @@
 from argparse import ArgumentParser
-from collections import defaultdict
 from easydict import EasyDict as edict
 from torch.utils.data import DataLoader
 import torch
 import numpy as np
 import open3d as o3d
 import copy
-import pandas as pd
 from tqdm import tqdm
 import logging
+import os
 
-from mbes_data.common.math import so3
 from mbes_data.lib.utils import load_config, setup_seed
-from mbes_data.lib.benchmark_utils import to_o3d_pcd, to_tsfm
-from mbes_data.lib.evaluations import (compute_metrics, update_metrics_dict,
-                                       summarize_metrics, print_metrics,
-                                       ALL_METRICS_TEMPLATE)
+from mbes_data.lib.benchmark_utils import to_o3d_pcd, to_tsfm, to_array
 from mbes_data.datasets.mbes_data import get_multibeam_datasets
 setup_seed(0)
 
@@ -76,10 +71,7 @@ def test(config: edict):
     _, _, test_set = get_multibeam_datasets(config)
     test_loader = DataLoader(test_set, batch_size=config.batch_size, num_workers=config.num_workers, shuffle=False)
 
-    all_gt_metrics = copy.deepcopy(ALL_METRICS_TEMPLATE)
-    all_pred_metrics = copy.deepcopy(ALL_METRICS_TEMPLATE)
-    all_null_metrics = copy.deepcopy(ALL_METRICS_TEMPLATE)
-
+    results = {}
     for _, data in tqdm(enumerate(test_loader), total=len(test_set)):
         for key in data.keys():
             if isinstance(data[key], torch.Tensor):
@@ -90,44 +82,23 @@ def test(config: edict):
             transform_pred = icp(config, data, estimation_method=o3d.pipelines.registration.TransformationEstimationPointToPoint())
         elif config.icp_variant == 'icp_point_to_plane':
             transform_pred = icp(config, data, estimation_method=o3d.pipelines.registration.TransformationEstimationPointToPlane())
+        elif config.icp_variant == 'null':
+            transform_pred = np.eye(4)
         else:
             raise NotImplementedError(f'Unknown icp variant: {config.icp_variant}')
-        pred_metrics = compute_metrics(data, transform_pred, config)
-        all_pred_metrics = update_metrics_dict(all_pred_metrics, pred_metrics)
 
-        transform_gt = to_tsfm(data['transform_gt_rot'], data['transform_gt_trans'])
-        logger.info(f'gt rotation: {so3.dcm2euler(data["transform_gt_rot"].unsqueeze(0))}')
-        gt_metrics = compute_metrics(data, transform_gt, config)
-        all_gt_metrics = update_metrics_dict(all_gt_metrics, gt_metrics)
-
-        null_metrics = compute_metrics(data, np.eye(4), config)
-        all_null_metrics = update_metrics_dict(all_null_metrics, null_metrics)
-
-    for key, val in all_gt_metrics.items():
-        if isinstance(val, dict):
-            for k, v in val.items():
-                all_gt_metrics[key][k] = np.array(v)
-                all_pred_metrics[key][k] = np.array(all_pred_metrics[key][k])
-                all_null_metrics[key][k] = np.array(all_null_metrics[key][k])
-        else:
-            all_gt_metrics[key] = np.array(val)
-            all_pred_metrics[key] = np.array(all_pred_metrics[key])
-            all_null_metrics[key] = np.array(all_null_metrics[key])
-
-    print('Using ground truth GT:')
-    summary_all_gt_metrics = summarize_metrics(all_gt_metrics)
-    print_metrics(logger, summary_all_gt_metrics)
-    
-    print('==========================================')
-    print('Using predicted transformation:')
-    summary_all_pred_metrics = summarize_metrics(all_pred_metrics)
-    print_metrics(logger, summary_all_pred_metrics)
-
-    print('==========================================')
-    print('Using null transformation:')
-    summary_all_null_metrics = summarize_metrics(all_null_metrics)
-    print_metrics(logger, summary_all_null_metrics)
-
+        idx = int(data['idx'])
+        results[idx] = {
+            'labels': data['labels'],
+            'points_src': to_array(data['points_src']),
+            'points_ref': to_array(data['points_ref']),
+            'points_raw': to_array(data['points_raw']),
+            'transform_gt': to_array(data['transform_gt']),
+            'transform_gt_rot': to_array(data['transform_gt_rot']),
+            'transform_gt_trans': to_array(data['transform_gt_trans']),
+            'transform_pred': to_array(transform_pred),
+        }
+    np.savez(config.results_path, results=results, config=config, allow_pickle=True)
 
 if __name__ == '__main__':
     parser = ArgumentParser()
@@ -140,5 +111,7 @@ if __name__ == '__main__':
     for k, v in network_config.items():
         if k not in config:
             config[k] = v
+    os.makedirs(config.exp_dir, exist_ok=True)
+    config.results_path = f'{config.exp_dir}/results.npz'
     print(config)
     test(config)
