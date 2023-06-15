@@ -115,7 +115,7 @@ def to_o3d_feats(embedding):
     Convert tensor/array to open3d features
     embedding:  [N, 3]
     """
-    feats = o3d.registration.Feature()
+    feats = o3d.pipelines.registration.Feature()
     feats.data = to_array(embedding).T
     return feats
 
@@ -206,24 +206,24 @@ def ransac_pose_estimation(src_pcd, tgt_pcd, src_feat, tgt_feat, mutual = False,
         corrs = o3d.utility.Vector2iVector(np.array([row_sel,col_sel]).T)
         src_pcd = to_o3d_pcd(src_pcd)
         tgt_pcd = to_o3d_pcd(tgt_pcd)
-        result_ransac = o3d.registration.registration_ransac_based_on_correspondence(
+        result_ransac = o3d.pipelines.registration.registration_ransac_based_on_correspondence(
             source=src_pcd, target=tgt_pcd,corres=corrs, 
             max_correspondence_distance=distance_threshold,
-            estimation_method=o3d.registration.TransformationEstimationPointToPoint(False),
+            estimation_method=o3d.pipelines.registration.TransformationEstimationPointToPoint(False),
             ransac_n=4,
-            criteria=o3d.registration.RANSACConvergenceCriteria(50000, 1000))
+            criteria=o3d.pipelines.registration.RANSACConvergenceCriteria(50000, 1000))
     else:
         src_pcd = to_o3d_pcd(src_pcd)
         tgt_pcd = to_o3d_pcd(tgt_pcd)
         src_feats = to_o3d_feats(src_feat)
         tgt_feats = to_o3d_feats(tgt_feat)
 
-        result_ransac = o3d.registration.registration_ransac_based_on_feature_matching(
-            src_pcd, tgt_pcd, src_feats, tgt_feats,distance_threshold,
-            o3d.registration.TransformationEstimationPointToPoint(False), ransac_n,
-            [o3d.registration.CorrespondenceCheckerBasedOnEdgeLength(0.9),
-            o3d.registration.CorrespondenceCheckerBasedOnDistance(distance_threshold)],
-            o3d.registration.RANSACConvergenceCriteria(50000, 1000))
+        result_ransac = o3d.pipelines.registration.registration_ransac_based_on_feature_matching(
+            src_pcd, tgt_pcd, src_feats, tgt_feats,False, distance_threshold,
+            o3d.pipelines.registration.TransformationEstimationPointToPoint(False), ransac_n,
+            [o3d.pipelines.registration.CorrespondenceCheckerBasedOnEdgeLength(0.9),
+            o3d.pipelines.registration.CorrespondenceCheckerBasedOnDistance(distance_threshold)],
+            o3d.pipelines.registration.RANSACConvergenceCriteria(50000, 1000))
             
     return result_ransac.transformation
 
