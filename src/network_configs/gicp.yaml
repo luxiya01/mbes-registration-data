@@ -1,0 +1,2 @@
+model:
+  icp_variant: 'gicp' # one of [gicp, icp_point_to_plane, icp_point_to_point, null (use np.eye(4))]
