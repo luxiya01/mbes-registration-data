@@ -11,6 +11,8 @@ from dataclasses import dataclass, asdict
 import mbes_data.datasets.transforms as Transforms
 import mbes_data.common.math.se3 as se3
 from mbes_data.lib.benchmark_utils import get_correspondences, to_o3d_pcd, to_tsfm
+from mbes_data.lib.utils import setup_seed
+setup_seed(0)
   
 def get_multibeam_datasets(args: argparse.Namespace):
     if (args.dataset == 'multibeam'):
