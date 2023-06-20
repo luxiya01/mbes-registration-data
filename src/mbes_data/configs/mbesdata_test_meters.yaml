@@ -1,5 +1,5 @@
 misc:
-  exp_dir: 'mbes_modelnet'
+  exp_dir: '20230619-TESTRUN2'
 
 dataset:
   dataset: multibeam
@@ -38,5 +38,3 @@ dataset:
   dataset_type: multibeam_npy
   draw_items: false
   draw_registration_results: false
-  savefig: false
-  draw_to_screen: false

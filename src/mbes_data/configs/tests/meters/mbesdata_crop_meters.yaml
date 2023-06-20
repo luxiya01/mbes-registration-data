@@ -2,6 +2,7 @@ misc:
   mode: test
   gpu_mode: True
   verbose: True
+  exp_dir: '20230620-crop-meters'
 
 dataset:
   dataset: multibeam
@@ -15,7 +16,7 @@ dataset:
   num_points: 10000
   in_feats_dim: 1
   batch_size: 1
-  num_workers: 8
+  num_workers: 1
   voxel_size: 1 # meter (voxel downsampling happens in the raw data space with metric scale)
   scale: False # True = scale all points to [-1, 1], False = use raw data scale (meters)
   overlap_radius: 1.5 # meters if scale = False, unit sphere unit if scale = True
