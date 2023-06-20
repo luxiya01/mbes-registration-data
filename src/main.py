@@ -11,7 +11,7 @@ import logging
 import os
 
 from mbes_data.lib.utils import load_config, setup_seed
-from mbes_data.lib.benchmark_utils import to_o3d_pcd, to_tsfm, to_array
+from mbes_data.lib.benchmark_utils import to_o3d_pcd, to_tsfm
 from mbes_data.datasets.mbes_data import get_multibeam_datasets
 from mbes_data.lib.evaluations import save_results_to_file, update_results
 setup_seed(0)
@@ -74,6 +74,8 @@ def test(config: edict):
     test_loader = DataLoader(test_set, batch_size=config.batch_size, num_workers=config.num_workers, shuffle=False)
 
     results = defaultdict(dict)
+    outdir = os.path.join(config.exp_dir, config.icp_variant)
+    os.makedirs(outdir, exist_ok=True)
     for _, data in tqdm(enumerate(test_loader), total=len(test_set)):
         for key in data.keys():
             if isinstance(data[key], torch.Tensor):
@@ -89,8 +91,11 @@ def test(config: edict):
         else:
             raise NotImplementedError(f'Unknown icp variant: {config.icp_variant}')
 
-        results = update_results(results, data, transform_pred)
-    save_results_to_file(logger, results, config)
+        results = update_results(results, data, transform_pred,
+                                 config, outdir, logger)
+    # save results of the last MBES file
+    save_results_to_file(logger, results, config, outdir)
+
 
 if __name__ == '__main__':
     parser = ArgumentParser()

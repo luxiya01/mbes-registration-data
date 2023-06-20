@@ -13,15 +13,28 @@ from easydict import EasyDict as edict
 
 from mbes_data.common.math_torch import se3
 from mbes_data.common.math.so3 import dcm2euler
+import os
 
-def update_results(results: dict, data: dict, transform_pred: torch.Tensor):
-    """Helper function to update the results dict with the new data and predicted transform."""
-
+def get_filename_from_data(data:dict):
     filename = data['labels']['fname']
     if isinstance(filename, list):
         assert len(filename) == 1
         filename = filename[0]
     filename = filename.split('/')[-1].split('.')[0]
+    return filename
+
+
+def update_results(results: dict, data: dict, transform_pred: torch.Tensor, config: edict, outdir: str,
+                   logger: logging.Logger):
+    """Helper function to update the results dict with the new data and predicted transform.
+    If the data filename is not already in the results dict (i.e. we are opening a new MBES file),
+    then we store the existing results dict under filename_res.npz in outdir, and create a new
+    results dict with the new data and predicted transform. This is to avoid memory overflow."""
+
+    filename = get_filename_from_data(data)
+    if len(results) > 0 and filename not in results:
+        save_results_to_file(logger, results, config, outdir)
+        results = defaultdict(dict)
 
     idx = int(data['idx'])
     results[filename][idx] = {
@@ -36,11 +49,11 @@ def update_results(results: dict, data: dict, transform_pred: torch.Tensor):
     }
     return results
 
-def save_results_to_file(logger: logging.Logger, results: dict, config: edict):
+def save_results_to_file(logger: logging.Logger, results: dict, config: edict, outdir: str):
     """ Save the results to file, separated by data filenames."""
     for filename, file_res in results.items():
-        logger.info('Saving results for {} to {}'.format(filename, config.exp_dir))
-        np.savez(f'{config.exp_dir}/{filename}_res.npz',
+        logger.info('Saving results for {} to {}'.format(filename, outdir))
+        np.savez(f'{outdir}/{filename}_res.npz',
                  results=file_res,
                  config=config,
                  allow_pickle=True)
