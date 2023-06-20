@@ -46,6 +46,7 @@ def update_results(results: dict, data: dict, transform_pred: torch.Tensor, conf
         'transform_gt_rot': to_array(data['transform_gt_rot']),
         'transform_gt_trans': to_array(data['transform_gt_trans']),
         'transform_pred': to_array(transform_pred),
+        'success': data['success']
     }
     return results
 
@@ -72,6 +73,11 @@ def compute_metrics_from_results(logger: logging.Logger, results_file: str, use_
 
     all_metrics = copy.deepcopy(ALL_METRICS_TEMPLATE)
     for _, data in tqdm(results.items(), total=len(results)):
+        # Do not include unsuccessful predictions into metrics computation
+        # but add whether the prediction is successful to the metrics dict
+        all_metrics['success'].append(data['success'])
+        if not data['success']:
+            continue
         if use_transform == 'pred':
             pred_transform = data['transform_pred']
         elif use_transform == 'gt':
@@ -105,7 +111,8 @@ ALL_METRICS_TEMPLATE = {
   't_mae': [],
   'err_r_deg': [],
   'err_t': [],
-  'chamfer_dist': []
+  'chamfer_dist': [],
+  'success': []
 }
 
 
@@ -512,6 +519,10 @@ def print_metrics(logger,
             summary_metrics['hit_by_both'] / summary_metrics['hit_by_one'] *
             100))
     logger.info('----------------')
+
+    # Log success rate
+    logger.info(
+        'Success rate: {:.2f}%'.format(summary_metrics['success'] * 100))
     logger.info('END OF METRICS LOGGING!')
     logger.info('=' * 60)
 

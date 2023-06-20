@@ -91,6 +91,8 @@ def test(config: edict):
         else:
             raise NotImplementedError(f'Unknown icp variant: {config.icp_variant}')
 
+        data['success'] = not (np.allclose(transform_pred,
+                                      np.eye(4)))
         results = update_results(results, data, transform_pred,
                                  config, outdir, logger)
     # save results of the last MBES file
