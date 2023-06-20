@@ -1,4 +1,6 @@
 from collections import defaultdict
+import json
+from typing import List
 import numpy as np
 import open3d as o3d
 from mbes_data.lib.benchmark_utils import to_o3d_pcd, to_tsfm, to_array, to_tensor
@@ -59,37 +61,46 @@ def save_results_to_file(logger: logging.Logger, results: dict, config: edict, o
                  config=config,
                  allow_pickle=True)
 
-
-def compute_metrics_from_results(logger: logging.Logger, results_file: str, use_transform: str = 'null', print: bool = True):
-    """ Compute metrics from the results file and log to logger."""
+def compute_metrics_from_results_folder(logger: logging.Logger, results_folder: str, use_transform: str = 'null', print: bool = True):
+    """ Compute metrics from the results files and log to logger."""
     if use_transform not in ['null', 'pred', 'gt']:
         raise ValueError('Invalid use_transform arg: {}. Supports [null, pred, gt]'.format(use_transform))
-    logging.info('Computing metrics using {} tranform from results file: {}'
-                 .format(use_transform, results_file))
-
-    file_content = np.load(results_file, allow_pickle=True)
-    results = file_content['results'].item()
-    config = file_content['config'].item()
+    logger.info('Computing metrics using {} tranform from results folder: {}'
+                 .format(use_transform, results_folder))
 
     all_metrics = copy.deepcopy(ALL_METRICS_TEMPLATE)
-    for _, data in tqdm(results.items(), total=len(results)):
-        # Do not include unsuccessful predictions into metrics computation
-        # but add whether the prediction is successful to the metrics dict
-        all_metrics['success'].append(data['success'])
-        if not data['success']:
-            continue
-        if use_transform == 'pred':
-            pred_transform = data['transform_pred']
-        elif use_transform == 'gt':
-            pred_transform = to_tsfm(data['transform_gt_rot'], data['transform_gt_trans'])
-        else:
-            pred_transform = np.eye(4) # null transform
-        data_metric = compute_metrics(data, pred_transform, config)
-        all_metrics = update_metrics_dict(all_metrics, data_metric)
+    config = None
+    results_files = sorted([x for x in os.listdir(results_folder) if x.endswith('.npz')
+                            and 'metrics' not in x])
+    for results_file in results_files:
+        logger.info('Loading results from {}'.format(results_file))
+        file_content = np.load(os.path.join(results_folder, results_file), allow_pickle=True)
+        results = file_content['results'].item()
+        if not config:
+            config = file_content['config'].item()
+
+        for _, data in tqdm(results.items(), total=len(results)):
+            # Do not include unsuccessful predictions into metrics computation
+            # but add whether the prediction is successful to the metrics dict
+            all_metrics['success'].append(data['success'])
+            if not data['success']:
+                continue
+            if use_transform == 'pred':
+                pred_transform = data['transform_pred']
+            elif use_transform == 'gt':
+                pred_transform = to_tsfm(data['transform_gt_rot'], data['transform_gt_trans'])
+            else:
+                pred_transform = np.eye(4) # null transform
+            data_metric = compute_metrics(data, pred_transform, config)
+            all_metrics = update_metrics_dict(all_metrics, data_metric)
     summary = summarize_metrics(all_metrics)
     if print:
         print_metrics(logger, summary, title=f'{use_transform.upper()} Metrics')
-    return {'all_metrics': all_metrics, 'summary': summary}
+
+    summary_and_all_metrics = {'all_metrics': all_metrics, 'summary': summary}
+    np.savez(os.path.join(results_folder, f'{use_transform}_metrics.npz'),
+                **summary_and_all_metrics)
+    return summary_and_all_metrics
 
 #========================================================================================
 # Below: Point cloud registration metrics computation
