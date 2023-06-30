@@ -286,7 +286,16 @@ class MultibeamNpy(Dataset):
         return len(self._data)
 
     def _read_npy_files(self, fnames, scale):
+        all_data_file = os.path.join(self._root, f'{self._subset}_data.npy')
+        all_labels_file = os.path.join(self._root, f'{self._subset}_labels.npy')
 
+        # Load data from npy files if they exist
+        if os.path.exists(all_data_file) and os.path.exists(all_labels_file):
+            all_data = np.load(all_data_file, allow_pickle=True)
+            all_labels = np.load(all_labels_file, allow_pickle=True)
+            return all_data, all_labels
+
+        # Generate patches and store into npy files if they don't already exist
         all_data = []
         all_labels = []
         
@@ -328,8 +337,8 @@ class MultibeamNpy(Dataset):
                     all_data.append(patch_points.astype(np.float32))
                     all_labels.append(patch_label)
         
-        np.save(os.path.join(self._root, f'{self._subset}_data.npy'), all_data)
-        np.save(os.path.join(self._root, f'{self._subset}_labels.npy'), all_labels)
+        np.save(all_data_file, all_data)
+        np.save(all_labels_file, all_labels)
         
         return all_data, all_labels
 
