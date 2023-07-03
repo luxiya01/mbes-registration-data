@@ -5,7 +5,7 @@ import numpy as np
 import open3d as o3d
 from mbes_data.lib.benchmark_utils import to_o3d_pcd, to_tsfm, to_array, to_tensor
 import torch
-from scipy.spatial.distance import pdist
+from scipy.spatial.distance import cdist
 from scipy.spatial import KDTree
 import copy
 import logging
@@ -161,23 +161,26 @@ def compute_consistency_metrics(data: dict,
     xv, yv = np.meshgrid(x, y)
     queries = np.stack((xv.flatten(), yv.flatten()), axis=-1)
     queries_tree = KDTree(queries)
-    all_points = np.concatenate((src_points, ref_points), axis=0)
-    all_points_noz = all_points[:, :2]
-    all_points_tree = KDTree(all_points_noz)
-    results = queries_tree.query_ball_tree(all_points_tree, resolution * 1.5)
-    results_src = queries_tree.query_ball_tree(src_tree, resolution * .5)
-    results_ref = queries_tree.query_ball_tree(ref_tree, resolution * .5)
 
-    for i in range(len(results)):
-        query = queries[i]
+    std_src = queries_tree.query_ball_tree(src_tree, resolution * .5)
+    std_ref = queries_tree.query_ball_tree(ref_tree, resolution * .5)
+
+    consistency_src = queries_tree.query_ball_tree(src_tree, resolution * 1.5)
+    consistency_ref = queries_tree.query_ball_tree(ref_tree, resolution * 1.5)
+
+    for i, query in enumerate(queries):
         row = int((query[0] - min_x) / resolution)
         col = int((query[1] - min_y) / resolution)
-        hits = all_points[results[i]]
-        if len(hits) > 0:
-            consistency_metric[row, col] = np.mean(pdist(hits))
+        hits_consistency_src = src_points[consistency_src[i]]
+        hits_consistency_ref = ref_points[consistency_ref[i]]
+        if len(hits_consistency_src) > 0 and len(hits_consistency_ref) > 0:
+            maxmin_dist_src_to_ref = np.min(cdist(hits_consistency_src, hits_consistency_ref), axis=1).max()
+            maxmin_dist_ref_to_src = np.min(cdist(hits_consistency_ref, hits_consistency_src), axis=1).max()
+            consistency_metric[row, col] = np.max([maxmin_dist_src_to_ref,
+                                                  maxmin_dist_ref_to_src])
 
-        std_src_idx = results_src[i]
-        std_ref_idx = results_ref[i]
+        std_src_idx = std_src[i]
+        std_ref_idx = std_ref[i]
 
         if len(std_src_idx) == 0 and len(std_ref_idx) == 0:
             continue
