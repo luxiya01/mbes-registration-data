@@ -126,18 +126,36 @@ ALL_METRICS_TEMPLATE = {
   'success': []
 }
 
+def _construct_kd_tree_from_xy_values(points: np.ndarray,
+                                      transform: np.ndarray = None) -> tuple:
+    """ Construct a KD tree from the x, y values of the points.
+    Optionally transform the points using the provided transform."""
+    pcd = to_o3d_pcd(points)
+    if transform is not None:
+        pcd.transform(transform)
+    transformed_points = np.array(pcd.points)
+    return transformed_points, KDTree(transformed_points[:, :2])
+
+def _construct_query_tree(min_x: float, min_y: float,
+                          num_rows: float, num_cols: float,
+                          resolution: float):
+    x = np.linspace(min_x + (0.5 * resolution),
+                    min_x + (num_rows - 1 + 0.5) * resolution, num_rows)
+    y = np.linspace(min_y + (0.5 * resolution),
+                    min_y + (num_cols - 1 + 0.5) * resolution, num_cols)
+    xv, yv = np.meshgrid(x, y)
+    queries = np.stack((xv.flatten(), yv.flatten()), axis=-1)
+    queries_tree = KDTree(queries)
+    return queries, queries_tree
 
 def compute_consistency_metrics(data: dict,
                                 transform_pred: np.array,
                                 resolution: float = 1) -> np.ndarray:
-    src = to_o3d_pcd(data['points_src'])
-    src.transform(transform_pred)
-    src_points = np.array(src.points)
-    src_tree = KDTree(src_points[:, :2])  # only use x, y to build KD tree
-
-    ref = to_o3d_pcd(data['points_ref'])
-    ref_points = np.array(ref.points)
-    ref_tree = KDTree(ref_points[:, :2])
+    """ Compute the consistency metrics at a specified resolution."""
+    src_points, src_tree = _construct_kd_tree_from_xy_values(
+        points=data['points_src'], transform=transform_pred)
+    ref_points, ref_tree = _construct_kd_tree_from_xy_values(
+        points=data['points_ref'], transform=None)
 
     # Get range of x and y
     max_x = max(np.max(src_points[:, 0]), np.max(ref_points[:, 0]))
@@ -154,13 +172,9 @@ def compute_consistency_metrics(data: dict,
     hit_by_both = np.zeros((num_rows, num_cols))
     hit_by_one = np.zeros((num_rows, num_cols))
 
-    x = np.linspace(min_x + (0.5 * resolution),
-                    min_x + (num_rows - 1 + 0.5) * resolution, num_rows)
-    y = np.linspace(min_y + (0.5 * resolution),
-                    min_y + (num_cols - 1 + 0.5) * resolution, num_cols)
-    xv, yv = np.meshgrid(x, y)
-    queries = np.stack((xv.flatten(), yv.flatten()), axis=-1)
-    queries_tree = KDTree(queries)
+    queries, queries_tree = _construct_query_tree(min_x=min_x, min_y=min_y,
+                                                  num_rows=num_rows, num_cols=num_cols,
+                                                  resolution=resolution)
 
     std_src = queries_tree.query_ball_tree(src_tree, resolution * .5)
     std_ref = queries_tree.query_ball_tree(ref_tree, resolution * .5)
@@ -171,8 +185,8 @@ def compute_consistency_metrics(data: dict,
     for i, query in enumerate(queries):
         row = int((query[0] - min_x) / resolution)
         col = int((query[1] - min_y) / resolution)
-        hits_consistency_src = src_points[consistency_src[i]]
-        hits_consistency_ref = ref_points[consistency_ref[i]]
+        hits_consistency_src = consistency_src[i]
+        hits_consistency_ref = consistency_ref[i]
         std_src_idx = std_src[i]
         std_ref_idx = std_ref[i]
 
