@@ -173,14 +173,17 @@ def compute_consistency_metrics(data: dict,
         col = int((query[1] - min_y) / resolution)
         hits_consistency_src = src_points[consistency_src[i]]
         hits_consistency_ref = ref_points[consistency_ref[i]]
-        if len(hits_consistency_src) > 0 and len(hits_consistency_ref) > 0:
-            maxmin_dist_src_to_ref = np.min(cdist(hits_consistency_src, hits_consistency_ref), axis=1).max()
-            maxmin_dist_ref_to_src = np.min(cdist(hits_consistency_ref, hits_consistency_src), axis=1).max()
-            consistency_metric[row, col] = np.max([maxmin_dist_src_to_ref,
-                                                  maxmin_dist_ref_to_src])
-
         std_src_idx = std_src[i]
         std_ref_idx = std_ref[i]
+
+        maxmin_dist_src_to_ref, maxmin_dist_ref_to_src = 0, 0
+        if len(hits_consistency_src) > 0 and len(std_ref_idx) > 0:
+            maxmin_dist_ref_to_src = np.min(cdist(ref_points[std_ref_idx], src_points[hits_consistency_src]), axis=1).max()
+        if len(hits_consistency_ref) > 0 and len(std_src_idx) > 0:
+            maxmin_dist_src_to_ref = np.min(cdist(src_points[std_src_idx], ref_points[hits_consistency_ref]), axis=1).max()
+        consistency_metric[row, col] = np.max([maxmin_dist_src_to_ref,
+                                               maxmin_dist_ref_to_src])
+
 
         if len(std_src_idx) == 0 and len(std_ref_idx) == 0:
             continue
