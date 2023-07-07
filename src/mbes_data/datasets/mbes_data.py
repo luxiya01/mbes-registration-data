@@ -237,10 +237,8 @@ class MultibeamNpy(Dataset):
         self.voxel_size = args.voxel_size
         self.draw_items = args.draw_items
         
-        with open(os.path.join(self._root, f'{self._subset}_files.txt')) as fid:
-            npy_filelist = [line.strip() for line in fid]
-            npy_filelist = [os.path.join(self._root, f) for f in npy_filelist]
-        self._data, self._labels = self._read_npy_files(npy_filelist, self.config.scale)
+        self._data, self._labels = self._read_pings_npy_file(os.path.join(self._root, self._subset),
+                                                             self.config.scale)
 
         
     def __getitem__(self, item):
@@ -285,62 +283,59 @@ class MultibeamNpy(Dataset):
     def __len__(self):
         return len(self._data)
 
-    def _read_npy_files(self, fnames, scale):
-        all_data_file = os.path.join(self._root, f'{self._subset}_data.npy')
-        all_labels_file = os.path.join(self._root, f'{self._subset}_labels.npy')
+    def _read_pings_npy_file(self, subset_root, scale):
+        """Read the .npy file contained in subset_root directory and parse it into
+        patches. Store the patch info into .npy files if they don't already exist."""
+        pings_data = os.path.join(subset_root, f'{self._subset}_pings.npy')
+        patches_file = os.path.join(subset_root, f'{self._subset}_patches.npy')
+        labels_file = os.path.join(subset_root, f'{self._subset}_labels.npy')
 
-        # Load data from npy files if they exist
-        if os.path.exists(all_data_file) and os.path.exists(all_labels_file):
-            all_data = np.load(all_data_file, allow_pickle=True)
-            all_labels = np.load(all_labels_file, allow_pickle=True)
-            return all_data, all_labels
+        if os.path.exists(patches_file) and os.path.exists(labels_file):
+            patches = np.load(patches_file, allow_pickle=True)
+            labels = np.load(labels_file, allow_pickle=True)
+            return patches, labels
 
-        # Generate patches and store into npy files if they don't already exist
-        all_data = []
-        all_labels = []
+        # Load pings data from .npy file and generate patches
+        patches, labels = [], []
+        pings = np.load(pings_data)
+        nbr_pings, nbr_beams, _ = pings.shape
+        print(f'Generating patches from {self._subset} data with {nbr_pings} pings...')
+        for ping_id_start in range(0, nbr_pings, self.nbr_pings_per_patch):
+            for beam_id_start in range(0, nbr_beams, self.nbr_beams_per_patch):
+                ping_id_end = min(ping_id_start + self.nbr_pings_per_patch, nbr_pings)
+                beam_id_end = min(beam_id_start + self.nbr_beams_per_patch, nbr_beams)
+
+                patch_raw = pings[ping_id_start:ping_id_end,
+                            beam_id_start:beam_id_end]
+
+                # Filter data points that are (0, 0, 0), i.e. no data
+                patch_raw = patch_raw[~np.all(patch_raw==0, axis=2)].astype(np.float32)
+
+                # patch shape could be 0 if the Ping No restarts itself...
+                if patch_raw.shape[0] == 0:
+                    continue
+
+                # Voxel down sampling
+                patch = self._voxel_down_sample(patch_raw)
+                print(f'Patch shape before voxel down sampling: {patch_raw.shape}\n'
+                        f'Patch shape after voxel down sampling: {patch.shape}\n'
+                        f'Retained {patch.shape[0] / patch_raw.shape[0]*100:.2f}% points\n')
+
+                # Normalize points
+                patch = self._normalize_points(patch, scale=scale)
+                patch_points = np.random.permutation(patch['patch_normalized'])
+                patch_label = PatchLabel(pings_data, ping_id_start, ping_id_end,
+                                                beam_id_start, beam_id_end,
+                                                centroid=patch['centroid'],
+                                                max_dist=patch['max_dist'])
+
+                # Store permuted points
+                patches.append(patch_points.astype(np.float32))
+                labels.append(patch_label)
+        np.save(patches_file, patches)
+        np.save(labels_file, labels)
+        return patches, labels
         
-        for fname in fnames:
-            f = np.load(fname)
-            nbr_pings_in_f, nbr_beams_in_f, _ = f.shape
-
-            # Split the npy into patches of (nbr_pings_per_patch, nbr_beams_per_patch, 3)
-            for ping_id_start in range(0, nbr_pings_in_f, self.nbr_pings_per_patch):
-                for beam_id_start in range(0, nbr_beams_in_f, self.nbr_beams_per_patch):
-                    ping_id_end = min(ping_id_start + self.nbr_pings_per_patch, nbr_pings_in_f)
-                    beam_id_end = min(beam_id_start + self.nbr_beams_per_patch, nbr_beams_in_f)
-
-                    patch_raw = f[ping_id_start:ping_id_end,
-                              beam_id_start:beam_id_end]
-                    
-                    # Filter data points that are (0, 0, 0), i.e. no data
-                    patch_raw = patch_raw[~np.all(patch_raw==0, axis=2)].astype(np.float32)
-
-                    # patch shape could be 0 if the Ping No restarts itself...
-                    if patch_raw.shape[0] == 0:
-                        continue
-
-                    # Voxel down sampling
-                    patch = self._voxel_down_sample(patch_raw)
-                    print(f'Patch shape before voxel down sampling: {patch_raw.shape}\n'
-                          f'Patch shape after voxel down sampling: {patch.shape}\n'
-                          f'Retained {patch.shape[0] / patch_raw.shape[0]*100:.2f}% points\n')
-
-                    # Normalize points
-                    patch = self._normalize_points(patch, scale=scale)
-                    patch_points = np.random.permutation(patch['patch_normalized'])
-                    patch_label = PatchLabel(fname, ping_id_start, ping_id_end,
-                                                 beam_id_start, beam_id_end,
-                                                 centroid=patch['centroid'],
-                                                 max_dist=patch['max_dist'])
-
-                    # Store permuted points
-                    all_data.append(patch_points.astype(np.float32))
-                    all_labels.append(patch_label)
-        
-        np.save(all_data_file, all_data)
-        np.save(all_labels_file, all_labels)
-        
-        return all_data, all_labels
 
     def _voxel_down_sample(self, patch):
         pcd = to_o3d_pcd(patch.reshape(-1, 3))
