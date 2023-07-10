@@ -8,6 +8,8 @@ import open3d as o3d
 from torch.utils.data import Dataset
 from dataclasses import dataclass, asdict
 
+from tqdm import tqdm
+
 import mbes_data.datasets.transforms as Transforms
 import mbes_data.common.math.se3 as se3
 from mbes_data.lib.benchmark_utils import get_correspondences, to_o3d_pcd, to_tsfm
@@ -107,7 +109,6 @@ def get_transforms(noise_type: str,
     if noise_type == "clean":
         # 1-1 correspondence for each point (resample first before splitting), no noise
         train_transforms = [Transforms.Resampler(num_points),
-                            Transforms.SplitSourceRef(),
                             Transforms.RandomTransformSE3_euler_MBES(rot_mag_z=rot_mag_z,
                                                                      trans_mag_x=trans_mag_x,
                                                                      trans_mag_y=trans_mag_y,
@@ -117,7 +118,6 @@ def get_transforms(noise_type: str,
         #TODO: double check FixedResampler implementation!
         test_transforms = [Transforms.SetDeterministic(),
                            Transforms.FixedResampler(num_points),
-                           Transforms.SplitSourceRef(),
                            Transforms.RandomTransformSE3_euler_MBES(rot_mag_z=rot_mag_z,
                                                                      trans_mag_x=trans_mag_x,
                                                                      trans_mag_y=trans_mag_y,
@@ -126,8 +126,7 @@ def get_transforms(noise_type: str,
 
     elif noise_type == "jitter":
         # Points randomly sampled (might not have perfect correspondence), gaussian noise to position
-        train_transforms = [Transforms.SplitSourceRef(),
-                            Transforms.RandomTransformSE3_euler_MBES(rot_mag_z=rot_mag_z,
+        train_transforms = [Transforms.RandomTransformSE3_euler_MBES(rot_mag_z=rot_mag_z,
                                                                      trans_mag_x=trans_mag_x,
                                                                      trans_mag_y=trans_mag_y,
                                                                      trans_mag_z=trans_mag_z),
@@ -136,7 +135,6 @@ def get_transforms(noise_type: str,
                             Transforms.ShufflePoints()]
 
         test_transforms = [Transforms.SetDeterministic(),
-                           Transforms.SplitSourceRef(),
                            Transforms.RandomTransformSE3_euler_MBES(rot_mag_z=rot_mag_z,
                                                                     trans_mag_x=trans_mag_x,
                                                                     trans_mag_y=trans_mag_y,
@@ -147,8 +145,7 @@ def get_transforms(noise_type: str,
 
     elif noise_type == "crop":
         # Both source and reference point clouds cropped, plus same noise in "jitter"
-        train_transforms = [Transforms.SplitSourceRef(),
-                            Transforms.RandomCropMBES(partial_p_keep),
+        train_transforms = [Transforms.RandomCropMBES(partial_p_keep),
                             Transforms.RandomTransformSE3_euler_MBES(rot_mag_z=rot_mag_z,
                                                                     trans_mag_x=trans_mag_x,
                                                                     trans_mag_y=trans_mag_y,
@@ -158,7 +155,6 @@ def get_transforms(noise_type: str,
                             Transforms.ShufflePoints()]
  
         test_transforms = [Transforms.SetDeterministic(),
-                           Transforms.SplitSourceRef(),
                            Transforms.RandomCropMBES(partial_p_keep),
                            Transforms.RandomTransformSE3_euler_MBES(rot_mag_z=rot_mag_z,
                                                                     trans_mag_x=trans_mag_x,
@@ -166,48 +162,6 @@ def get_transforms(noise_type: str,
                                                                     trans_mag_z=trans_mag_z),
                            Transforms.Resampler(num_points),
                            Transforms.RandomJitterMBES(scale_x=scale_x, scale_y=scale_y, scale_z=scale_z, clip_x=clip_x, clip_y=clip_y, clip_z=clip_z),
-                           Transforms.ShufflePoints()]
-    elif noise_type == "jitter_in_meters":
-        # Points randomly sampled (might not have perfect correspondence), gaussian noise to position in meters
-        train_transforms = [Transforms.SplitSourceRef(),
-                            Transforms.RandomTransformSE3_euler_MBES(rot_mag_z=rot_mag_z,
-                                                                     trans_mag_x=trans_mag_x,
-                                                                     trans_mag_y=trans_mag_y,
-                                                                     trans_mag_z=trans_mag_z),
-                            Transforms.Resampler(num_points),
-                            Transforms.RandomJitterMBESInMeterScale(scale_x=scale_x, scale_y=scale_y, scale_z=scale_z, clip_x=clip_x, clip_y=clip_y, clip_z=clip_z),
-                            Transforms.ShufflePoints()]
-
-        test_transforms = [Transforms.SetDeterministic(),
-                           Transforms.SplitSourceRef(),
-                           Transforms.RandomTransformSE3_euler_MBES(rot_mag_z=rot_mag_z,
-                                                                    trans_mag_x=trans_mag_x,
-                                                                    trans_mag_y=trans_mag_y,
-                                                                    trans_mag_z=trans_mag_z),
-                           Transforms.Resampler(num_points),
-                           Transforms.RandomJitterMBESInMeterScale(scale_x=scale_x, scale_y=scale_y, scale_z=scale_z, clip_x=clip_x, clip_y=clip_y, clip_z=clip_z),
-                           Transforms.ShufflePoints()]
-    elif noise_type == "crop_then_jitter_in_meters":
-        # Both source and reference point clouds cropped, plus same noise in "jitter_in_meters"
-        train_transforms = [Transforms.SplitSourceRef(),
-                            Transforms.RandomCropMBES(partial_p_keep),
-                            Transforms.RandomTransformSE3_euler_MBES(rot_mag_z=rot_mag_z,
-                                                                    trans_mag_x=trans_mag_x,
-                                                                    trans_mag_y=trans_mag_y,
-                                                                    trans_mag_z=trans_mag_z),
-                            Transforms.Resampler(num_points),
-                            Transforms.RandomJitterMBESInMeterScale(scale_x=scale_x, scale_y=scale_y, scale_z=scale_z, clip_x=clip_x, clip_y=clip_y, clip_z=clip_z),
-                            Transforms.ShufflePoints()]
- 
-        test_transforms = [Transforms.SetDeterministic(),
-                           Transforms.SplitSourceRef(),
-                           Transforms.RandomCropMBES(partial_p_keep),
-                           Transforms.RandomTransformSE3_euler_MBES(rot_mag_z=rot_mag_z,
-                                                                    trans_mag_x=trans_mag_x,
-                                                                    trans_mag_y=trans_mag_y,
-                                                                    trans_mag_z=trans_mag_z),
-                           Transforms.Resampler(num_points),
-                           Transforms.RandomJitterMBESInMeterScale(scale_x=scale_x, scale_y=scale_y, scale_z=scale_z, clip_x=clip_x, clip_y=clip_y, clip_z=clip_z),
                            Transforms.ShufflePoints()]
     else:
         raise NotImplementedError
@@ -227,25 +181,41 @@ class MultibeamNpy(Dataset):
                 on a sample.
         """
         self.config = args
-        self._root = root
         self._subset = subset
+        patches_folder_name = (f'patches-{args.nbr_pings_per_patch}pings-{args.nbr_beams_per_patch}beams-'
+                               f'{args.pings_step}pings_step-{args.beams_step}beams_step')
+        self._subset_root = os.path.join(root, os.path.join(subset, patches_folder_name))
         self._transform = transform
         self.n_in_feats = args.in_feats_dim
         self.overlap_radius = args.overlap_radius
-        self.nbr_pings_per_patch = args.nbr_pings_per_patch
-        self.nbr_beams_per_patch = args.nbr_beams_per_patch
         self.voxel_size = args.voxel_size
+        self.pair_overlap_ratio = args.pair_overlap_ratio
         self.draw_items = args.draw_items
+        self._pairs = self._get_pairs()
+
+    def _get_pairs(self):
+        patches = sorted([x for x in os.listdir(self._subset_root) if x.endswith('.npz')],
+                         key=lambda x: int(x.split('.')[0]))
+        pairs = []
+
+        # The patches were segmented with 80% overlap consecutively, so to achieve a e.g. 20% overlap
+        # we would need to skip 4 patches in between
+        index_step = np.ceil((1 - self.pair_overlap_ratio) / 0.2).astype(int)
+        print(f'index_step: {index_step}')
+
+        for i in range(len(patches) - index_step):
+            pairs.append((os.path.join(self._subset_root, patches[i]),
+                          os.path.join(self._subset_root, patches[i + index_step])))
+        return pairs
         
-        self._data, self._labels = self._read_pings_npy_file(os.path.join(self._root, self._subset),
-                                                             self.config.scale)
+    def __len__(self):
+        return len(self._pairs)
 
         
     def __getitem__(self, item):
         # TODO: implement custom collate_fn to handle variable number of matching_inds and allow for batch_size > 1!
-        sample = {'points': self._data[item], 'label': asdict(self._labels[item]), 'idx': np.array(item,
-                                                                                           dtype=np.int32)}
-        
+        sample = self._load_and_center_patch_pair(item)
+
         if self._transform:
             sample = self._transform(sample)
         # transform to our format
@@ -267,8 +237,7 @@ class MultibeamNpy(Dataset):
             tgt_pcd_o3d = to_o3d_pcd(tgt_pcd)
             o3d.visualization.draw_geometries([src_pcd_o3d, tgt_pcd_o3d])
 
-        return {'points_raw': sample['points_raw'],
-                'points_src': src_pcd,
+        return {'points_src': src_pcd,
                 'points_ref': tgt_pcd,
                 'features_src': src_feats,
                 'features_ref': tgt_feats,
@@ -276,66 +245,10 @@ class MultibeamNpy(Dataset):
                 'transform_gt_rot': rot,
                 'transform_gt_trans': trans,
                 'matching_inds': matching_inds,
-                'labels': sample['label'],
-                'idx': sample['idx']
+                'idx': sample['idx'],
+                'src_idx': self._pairs[item][0],
+                'ref_idx': self._pairs[item][1]
                 }
-
-    def __len__(self):
-        return len(self._data)
-
-    def _read_pings_npy_file(self, subset_root, scale):
-        """Read the .npy file contained in subset_root directory and parse it into
-        patches. Store the patch info into .npy files if they don't already exist."""
-        pings_data = os.path.join(subset_root, f'{self._subset}_pings.npy')
-        patches_file = os.path.join(subset_root, f'{self._subset}_patches.npy')
-        labels_file = os.path.join(subset_root, f'{self._subset}_labels.npy')
-
-        if os.path.exists(patches_file) and os.path.exists(labels_file):
-            patches = np.load(patches_file, allow_pickle=True)
-            labels = np.load(labels_file, allow_pickle=True)
-            return patches, labels
-
-        # Load pings data from .npy file and generate patches
-        patches, labels = [], []
-        pings = np.load(pings_data)
-        nbr_pings, nbr_beams, _ = pings.shape
-        print(f'Generating patches from {self._subset} data with {nbr_pings} pings...')
-        for ping_id_start in range(0, nbr_pings, self.nbr_pings_per_patch):
-            for beam_id_start in range(0, nbr_beams, self.nbr_beams_per_patch):
-                ping_id_end = min(ping_id_start + self.nbr_pings_per_patch, nbr_pings)
-                beam_id_end = min(beam_id_start + self.nbr_beams_per_patch, nbr_beams)
-
-                patch_raw = pings[ping_id_start:ping_id_end,
-                            beam_id_start:beam_id_end]
-
-                # Filter data points that are (0, 0, 0), i.e. no data
-                patch_raw = patch_raw[~np.all(patch_raw==0, axis=2)].astype(np.float32)
-
-                # patch shape could be 0 if the Ping No restarts itself...
-                if patch_raw.shape[0] == 0:
-                    continue
-
-                # Voxel down sampling
-                patch = self._voxel_down_sample(patch_raw)
-                print(f'Patch shape before voxel down sampling: {patch_raw.shape}\n'
-                        f'Patch shape after voxel down sampling: {patch.shape}\n'
-                        f'Retained {patch.shape[0] / patch_raw.shape[0]*100:.2f}% points\n')
-
-                # Normalize points
-                patch = self._normalize_points(patch, scale=scale)
-                patch_points = np.random.permutation(patch['patch_normalized'])
-                patch_label = PatchLabel(pings_data, ping_id_start, ping_id_end,
-                                                beam_id_start, beam_id_end,
-                                                centroid=patch['centroid'],
-                                                max_dist=patch['max_dist'])
-
-                # Store permuted points
-                patches.append(patch_points.astype(np.float32))
-                labels.append(patch_label)
-        np.save(patches_file, patches)
-        np.save(labels_file, labels)
-        return patches, labels
-        
 
     def _voxel_down_sample(self, patch):
         pcd = to_o3d_pcd(patch.reshape(-1, 3))
@@ -343,26 +256,17 @@ class MultibeamNpy(Dataset):
         patch = np.asarray(pcd.points)
         return patch
 
-    def _normalize_points(self, patch, scale=False):
-        centroid = np.mean(patch, axis=0)
-        patch_centered = patch - centroid
+    def _process_one_patch(self, patch, centroid):
+        patch = patch - centroid
+        patch = self._voxel_down_sample(patch)
+        return patch
 
-        max_dist = 1
-        if scale:
-            # scale the points to be in the range [-1, 1]
-            max_dist = np.max(np.linalg.norm(patch_centered, axis=1))
-        patch_normalized = patch_centered / max_dist
+    def _load_and_center_patch_pair(self, item):
+        patch_src = np.load(self._pairs[item][0])['submap']
+        patch_ref = np.load(self._pairs[item][1])['submap']
 
-        return {'patch_normalized': patch_normalized, 'centroid': centroid, 'max_dist': max_dist}
-
-
-
-@dataclass
-class PatchLabel:
-    fname: str
-    ping_id_start: int
-    ping_id_end: int
-    beam_id_start: int
-    beam_id_end: int
-    centroid: float
-    max_dist: float
+        centroid = np.concatenate([patch_src, patch_ref]).mean(axis=0)
+        patch_src = self._process_one_patch(patch_src, centroid)
+        patch_ref = self._process_one_patch(patch_ref, centroid)
+        return {'points_src': patch_src, 'points_ref': patch_ref,
+                'centroid': centroid, 'idx': item}
