@@ -1,0 +1,5 @@
+dataset:
+  nbr_pings_per_patch: 100
+  nbr_beams_per_patch: 400
+  pings_step: 20
+  beams_step: 400
