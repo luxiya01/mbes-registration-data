@@ -17,33 +17,25 @@ from mbes_data.common.math_torch import se3
 from mbes_data.common.math.so3 import dcm2euler
 import os
 
-def get_filename_from_data(data:dict):
-    filename = data['labels']['fname']
-    if isinstance(filename, list):
-        assert len(filename) == 1
-        filename = filename[0]
-    filename = filename.split('/')[-1].split('.')[0]
-    return filename
-
 
 def update_results(results: dict, data: dict, transform_pred: torch.Tensor, config: edict, outdir: str,
                    logger: logging.Logger):
     """Helper function to update the results dict with the new data and predicted transform.
-    If the data filename is not already in the results dict (i.e. we are opening a new MBES file),
-    then we store the existing results dict under filename_res.npz in outdir, and create a new
-    results dict with the new data and predicted transform. This is to avoid memory overflow."""
+    If the length of the results dict exceeds the threshold given in config, then we store the
+    existing results dict under patches-{idxmin}-{idxmax}.npz in outdir, and create a new results dict with
+    the new data and predicted transform. This is to avoid memory overflow."""
 
-    filename = get_filename_from_data(data)
-    if len(results) > 0 and filename not in results:
+    if len(results) >= config.results_length:
         save_results_to_file(logger, results, config, outdir)
         results = defaultdict(dict)
 
     idx = int(data['idx'])
-    results[filename][idx] = {
-        'labels': data['labels'],
+    results[idx] = {
+        'idx': data['idx'],
+        'src_idx': data['src_idx'],
+        'ref_idx': data['ref_idx'],
         'points_src': to_array(data['points_src']),
         'points_ref': to_array(data['points_ref']),
-        'points_raw': to_array(data['points_raw']),
         'transform_gt': to_array(data['transform_gt']),
         'transform_gt_rot': to_array(data['transform_gt_rot']),
         'transform_gt_trans': to_array(data['transform_gt_trans']),
@@ -54,12 +46,15 @@ def update_results(results: dict, data: dict, transform_pred: torch.Tensor, conf
 
 def save_results_to_file(logger: logging.Logger, results: dict, config: edict, outdir: str):
     """ Save the results to file, separated by data filenames."""
-    for filename, file_res in results.items():
-        logger.info('Saving results for {} to {}'.format(filename, outdir))
-        np.savez(f'{outdir}/{filename}_res.npz',
-                 results=file_res,
-                 config=config,
-                 allow_pickle=True)
+    pair_indices = set(results.keys())
+    min_idx = min(pair_indices)
+    max_idx = max(pair_indices)
+
+    logger.info(f'Saving results for pairs ({min_idx}, {max_idx}) to {outdir}')
+    np.savez(f'{outdir}/pairs_{min_idx}_to_{max_idx}_res.npz',
+                results=results,
+                config=config,
+                allow_pickle=True)
 
 def compute_metrics_from_results_folder(logger: logging.Logger, results_folder: str, use_transform: str = 'null', print: bool = True):
     """ Compute metrics from the results files and log to logger."""
@@ -80,10 +75,10 @@ def compute_metrics_from_results_folder(logger: logging.Logger, results_folder: 
             config = file_content['config'].item()
 
         for _, data in tqdm(results.items(), total=len(results)):
-            # Do not include unsuccessful predictions into metrics computation
+            # Do not include unsuccessful predictions into metrics computation for pred transform,
             # but add whether the prediction is successful to the metrics dict
             all_metrics['success'].append(data['success'])
-            if not data['success']:
+            if not data['success'] and use_transform == 'pred':
                 continue
             if use_transform == 'pred':
                 pred_transform = data['transform_pred']
@@ -122,7 +117,6 @@ ALL_METRICS_TEMPLATE = {
   't_mae': [],
   'err_r_deg': [],
   'err_t': [],
-  'chamfer_dist': [],
   'success': []
 }
 
@@ -364,7 +358,7 @@ def compute_metrics(data: dict, transform_pred: np.ndarray,
         # has_scaled is only used for RPMNet that feeds in multiple transforms...
         if not has_scaled:
             # scale points
-            for k in ['points_src', 'points_ref', 'points_raw']:
+            for k in ['points_src', 'points_ref']:
                 data[k] *= scale
             # scale translations in GT transform
             data['transform_gt_trans'] *= scale
@@ -413,7 +407,6 @@ def compute_overlap_predator_metrics(data, pred_transforms):
         gt_transforms = to_tensor(data['transform_gt']).unsqueeze(0)
         points_src = to_tensor(data['points_src'][..., :3]).unsqueeze(0)
         points_ref = to_tensor(data['points_ref'][..., :3]).unsqueeze(0)
-        points_raw = to_tensor(data['points_raw'][..., :3]).unsqueeze(0)
 
         # Euler angles, Individual translation errors (Deep Closest Point convention)
         # TODO Change rotation to torch operations
@@ -439,26 +432,13 @@ def compute_overlap_predator_metrics(data, pred_transforms):
                         (rot_trace - 1), min=-1.0, max=1.0)) * 180.0 / np.pi
         residual_transmag = concatenated[:, :, 3].norm(dim=-1)
 
-        # Modified Chamfer distance
-        src_transformed = se3.transform(pred_transforms, points_src)
-        ref_clean = points_raw
-        src_clean = se3.transform(
-            se3.concatenate(pred_transforms, se3.inverse(gt_transforms)),
-            points_raw)
-        dist_src = torch.min(square_distance(src_transformed, ref_clean),
-                             dim=-1)[0]
-        dist_ref = torch.min(square_distance(points_ref, src_clean), dim=-1)[0]
-        chamfer_dist = torch.mean(dist_src, dim=1) + torch.mean(dist_ref,
-                                                                dim=1)
-
         metrics = {
             'r_mse': r_mse,
             'r_mae': r_mae,
             't_mse': to_array(t_mse),
             't_mae': to_array(t_mae),
             'err_r_deg': to_array(residual_rotdeg),
-            'err_t': to_array(residual_transmag),
-            'chamfer_dist': to_array(chamfer_dist)
+            'err_t': to_array(residual_transmag)
         }
 
     return metrics
@@ -492,8 +472,6 @@ def print_metrics(logger,
         summary_metrics['err_r_deg_mean'], summary_metrics['err_r_deg_rmse']))
     logger.info('Translation error {:.4g}(mean) | {:.4g}(rmse)'.format(
         summary_metrics['err_t_mean'], summary_metrics['err_t_rmse']))
-    logger.info('Chamfer error: {:.7f}(mean-sq)'.format(
-        summary_metrics['chamfer_dist']))
 
     # Log registration RMSE and % pairs with <= x meters RMSE
     logger.info('----------------')
