@@ -42,7 +42,7 @@ def icp(config: edict,
     predicted = o3d.pipelines.registration.registration_icp(
         points_src, points_ref, config.overlap_radius, np.eye(4),
         estimation_method,
-        criteria=o3d.pipelines.registration.ICPConvergenceCriteria(max_iteration=200))
+        criteria=o3d.pipelines.registration.ICPConvergenceCriteria(max_iteration=config.max_iteration))
 
     if config.draw_registration_results:
         draw_registration_results(points_src, points_ref, transform_gt, predicted.transformation)
@@ -58,7 +58,7 @@ def generalized_icp(config: edict,
     predicted = o3d.pipelines.registration.registration_generalized_icp(
         points_src, points_ref, config.overlap_radius, np.eye(4),
         estimation_method,
-        criteria=o3d.pipelines.registration.ICPConvergenceCriteria(max_iteration=200))
+        criteria=o3d.pipelines.registration.ICPConvergenceCriteria(max_iteration=config.max_iteration))
 
     if config.draw_registration_results:
         draw_registration_results(points_src, points_ref, transform_gt, predicted.transformation)
