@@ -37,8 +37,12 @@ def uniform_2_sphere(num: int = None):
 
     return np.stack((x, y, z), axis=-1)
 
-def uniform_on_xy_plane(num: int = None):
-    """Uniform sampling on the xy plane
+def uniform_on_xy_plane(num: int = None, forbidden_direction: np.ndarray = None):
+    """Uniform sampling on the xy plane.
+    Args:
+        num: Number of phi to sample (or None if single)
+        forbidden_direction: If not None, the sampled vector will not be closed
+                             to parallel to this vector.
     
     Returns:
         Random vector (np.nparray) of size (num, 3) with norm 1.
@@ -53,6 +57,11 @@ def uniform_on_xy_plane(num: int = None):
     x = np.sin(theta) * np.cos(phi)
     y = np.sin(theta) * np.sin(phi)
     z = np.cos(theta)
+
+    if forbidden_direction is not None and np.greater_equal(np.abs(
+        np.dot(forbidden_direction, np.array([x, y]))), 0.9):
+        print('Rerunning uniform sampling on xy plane due to forbidden direction')
+        return uniform_on_xy_plane(num, forbidden_direction)
 
     return np.stack((x, y, z), axis=-1)
 
@@ -297,14 +306,22 @@ class RandomCropMBES:
     half-space oriented in this direction.
     If p_keep != 0.5, we shift the plane until approximately p_keep points are retained
     """
-    def __init__(self, p_keep: List = None):
+    def __init__(self, p_keep: List = None, enforce_forbidden_direction: bool = True):
         if p_keep is None:
             p_keep = [0.7, 0.7]  # Crop both clouds to 70%
         self.p_keep = np.array(p_keep, dtype=np.float32)
+        self.enforce_forbidden_direction = enforce_forbidden_direction
 
     @staticmethod
-    def crop(points, p_keep):
+    def crop(points, p_keep, enforce_forbidden_direction):
         rand_xyz = uniform_on_xy_plane()
+
+        if enforce_forbidden_direction:
+            eigenvalues, eigenvectors = np.linalg.eig(np.cov(points[:, :2], rowvar=False))
+            min_eigenvalue_idx = np.argmin(eigenvalues)
+            forbidden_direction = eigenvectors[:, min_eigenvalue_idx]
+            rand_xyz = uniform_on_xy_plane(forbidden_direction=forbidden_direction)
+
         centroid = np.mean(points[:, :3], axis=0)
         points_centered = points[:, :3] - centroid
 
@@ -326,10 +343,10 @@ class RandomCropMBES:
             np.random.seed(sample['idx'])
 
         if len(self.p_keep) == 1:
-            sample['points_src'] = self.crop(sample['points_src'], self.p_keep[0])
+            sample['points_src'] = self.crop(sample['points_src'], self.p_keep[0], self.enforce_forbidden_direction)
         else:
-            sample['points_src'] = self.crop(sample['points_src'], self.p_keep[0])
-            sample['points_ref'] = self.crop(sample['points_ref'], self.p_keep[1])
+            sample['points_src'] = self.crop(sample['points_src'], self.p_keep[0], self.enforce_forbidden_direction)
+            sample['points_ref'] = self.crop(sample['points_ref'], self.p_keep[1], self.enforce_forbidden_direction)
         return sample
 
 class RandomTransformSE3:

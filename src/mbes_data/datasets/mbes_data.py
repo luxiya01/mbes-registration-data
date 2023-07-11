@@ -46,12 +46,16 @@ def get_multibeam_train_datasets(args: argparse.Namespace):
 
 
 def get_multibeam_test_datasets(args: argparse.Namespace):
+    if 'enforce_forbidden_direction' not in args:
+        args.enforce_forbidden_direction = False
+
     _, test_transforms = get_transforms(args.noise_type,
                                         args.rot_mag_z,
                                         args.trans_mag_x, args.trans_mag_y, args.trans_mag_z,
                                         args.scale_x, args.scale_y, args.scale_z,
                                         args.clip_x, args.clip_y, args.clip_z,
-                                        args.num_points, args.partial)
+                                        args.num_points, args.partial,
+                                        args.enforce_forbidden_direction)
     test_transforms = torchvision.transforms.Compose(test_transforms)
 
     if args.dataset_type == 'multibeam_npy':
@@ -68,7 +72,8 @@ def get_transforms(noise_type: str,
                    trans_mag_x: float = 0.5, trans_mag_y: float = 0.5, trans_mag_z: float = 0.05,
                    scale_x: float = 0.01, scale_y: float = 0.01, scale_z: float = 0.001,
                    clip_x: float = 0.05, clip_y: float = 0.05, clip_z: float = 0.005,
-                   num_points: int = 1024, partial_p_keep: List = None):
+                   num_points: int = 1024, partial_p_keep: List = None,
+                   enforce_forbidden_direction: bool = True):
     """Get the list of transformation to be used for training or evaluating RegNet
 
     Args:
@@ -99,6 +104,9 @@ def get_transforms(noise_type: str,
           points will be proportionally less if cropped
         partial_p_keep: Proportion to keep during cropping, [src_p, ref_p]
           Default: [0.7, 0.7], i.e. Crop both source and reference to ~70%
+        enforce_forbidden_direction: Used for crop noise type. If True, the sampled
+          crop direction will NOT be parallel to the 2nd principle axis of the point cloud
+          (assumed travel direction of the vehicle).
 
     Returns:
         train_transforms, test_transforms: Both contain list of transformations to be applied
@@ -145,7 +153,7 @@ def get_transforms(noise_type: str,
 
     elif noise_type == "crop":
         # Both source and reference point clouds cropped, plus same noise in "jitter"
-        train_transforms = [Transforms.RandomCropMBES(partial_p_keep),
+        train_transforms = [Transforms.RandomCropMBES(partial_p_keep, enforce_forbidden_direction=enforce_forbidden_direction),
                             Transforms.RandomTransformSE3_euler_MBES(rot_mag_z=rot_mag_z,
                                                                     trans_mag_x=trans_mag_x,
                                                                     trans_mag_y=trans_mag_y,
@@ -155,7 +163,7 @@ def get_transforms(noise_type: str,
                             Transforms.ShufflePoints()]
  
         test_transforms = [Transforms.SetDeterministic(),
-                           Transforms.RandomCropMBES(partial_p_keep),
+                           Transforms.RandomCropMBES(partial_p_keep, enforce_forbidden_direction=enforce_forbidden_direction),
                            Transforms.RandomTransformSE3_euler_MBES(rot_mag_z=rot_mag_z,
                                                                     trans_mag_x=trans_mag_x,
                                                                     trans_mag_y=trans_mag_y,
