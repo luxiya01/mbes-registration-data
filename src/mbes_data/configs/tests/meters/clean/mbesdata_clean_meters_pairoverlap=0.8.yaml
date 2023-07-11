@@ -1,19 +1,22 @@
 misc:
-  exp_dir: '20230711-new-dataset-0.8overlap'
+  mode: test
+  gpu_mode: True
+  verbose: True
   results_length: 100
+  exp_dir: '20230711-clean-meters-pairoverlap=0.8'
 
 dataset:
   dataset: multibeam
   benchmark: multibeam
   subset_train: tmp69-70
   subset_val: tmp69-70
-  subset_test: tmp69-70
-  root: mbes_data/data/nbp22-mission2-dotson-east/
-  pair_overlap_ratio: .2 # *100 %
+  subset_test: test
+  root: mbes_data/data/nbp22-mission2-dotson-east
   nbr_pings_per_patch: 100
   nbr_beams_per_patch: 400
   pings_step: 20
   beams_step: 400
+  pair_overlap_ratio: 0.8 # *100 %
   num_points: 10000
   in_feats_dim: 1
   batch_size: 1
@@ -21,18 +24,11 @@ dataset:
   voxel_size: 1 # meter (voxel downsampling happens in the raw data space with metric scale)
   scale: False # True = scale all points to [-1, 1], False = use raw data scale (meters)
   overlap_radius: 1.5 # meters if scale = False, unit sphere unit if scale = True
-  noise_type: crop
-  #enforce_forbidden_direction: true
+  noise_type: clean
   rot_mag_z: 10
   trans_mag_x: 40
   trans_mag_y: 40
   trans_mag_z: 2
-#  scale_x: 0.01
-#  scale_y: 0.01
-#  scale_z: 0.001
-#  clip_x: 0.05
-#  clip_y: 0.05
-#  clip_z: 0.005
   scale_x: 0.5 #m since scale = False
   scale_y: 0.5 #m since scale = False
   scale_z: 0.2 #m since scale = False
@@ -41,5 +37,5 @@ dataset:
   clip_z: 1. #m since scale = False
   partial: [0.7,0.7]
   dataset_type: multibeam_npy
-  draw_items: true
-  draw_registration_results: true
+  draw_items: false
+  draw_registration_results: false

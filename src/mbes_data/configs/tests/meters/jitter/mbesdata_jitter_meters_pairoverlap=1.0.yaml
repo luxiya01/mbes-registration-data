@@ -2,17 +2,21 @@ misc:
   mode: test
   gpu_mode: True
   verbose: True
-  exp_dir: '20230620-jitter-meters'
+  results_length: 100
+  exp_dir: '20230711-jitter-meters-pairoverlap=1.0'
 
 dataset:
   dataset: multibeam
   benchmark: multibeam
-  subset_train: tmp
-  subset_val: tmp
+  subset_train: tmp69-70
+  subset_val: tmp69-70
   subset_test: test
   root: mbes_data/data/nbp22-mission2-dotson-east
   nbr_pings_per_patch: 100
   nbr_beams_per_patch: 400
+  pings_step: 20
+  beams_step: 400
+  pair_overlap_ratio: 1.0 # *100 %
   num_points: 10000
   in_feats_dim: 1
   batch_size: 1
@@ -25,12 +29,6 @@ dataset:
   trans_mag_x: 40
   trans_mag_y: 40
   trans_mag_z: 2
-#  scale_x: 0.01
-#  scale_y: 0.01
-#  scale_z: 0.001
-#  clip_x: 0.05
-#  clip_y: 0.05
-#  clip_z: 0.005
   scale_x: 0.5 #m since scale = False
   scale_y: 0.5 #m since scale = False
   scale_z: 0.2 #m since scale = False
