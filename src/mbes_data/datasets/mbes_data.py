@@ -253,7 +253,7 @@ class MultibeamNpy(Dataset):
     def _voxel_down_sample(self, patch):
         pcd = to_o3d_pcd(patch.reshape(-1, 3))
         pcd = pcd.voxel_down_sample(voxel_size=self.voxel_size)
-        patch = np.asarray(pcd.points)
+        patch = np.asarray(pcd.points, dtype=np.float32)
         return patch
 
     def _process_one_patch(self, patch, centroid):
@@ -265,7 +265,7 @@ class MultibeamNpy(Dataset):
         patch_src = np.load(self._pairs[item][0])['submap']
         patch_ref = np.load(self._pairs[item][1])['submap']
 
-        centroid = np.concatenate([patch_src, patch_ref]).mean(axis=0)
+        centroid = np.concatenate([patch_src, patch_ref]).mean(axis=0, dtype=np.float64)
         patch_src = self._process_one_patch(patch_src, centroid)
         patch_ref = self._process_one_patch(patch_ref, centroid)
         return {'points_src': patch_src, 'points_ref': patch_ref,
