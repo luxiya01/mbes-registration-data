@@ -25,6 +25,7 @@ dataset:
   scale: False # True = scale all points to [-1, 1], False = use raw data scale (meters)
   overlap_radius: 1.5 # meters if scale = False, unit sphere unit if scale = True
   noise_type: crop
+  enforce_forbidden_direction: true
   rot_mag_z: 10
   trans_mag_x: 40
   trans_mag_y: 40
