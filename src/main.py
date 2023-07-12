@@ -46,7 +46,7 @@ def icp(config: edict,
 
     if config.draw_registration_results:
         draw_registration_results(points_src, points_ref, transform_gt, predicted.transformation)
-    return predicted.transformation
+    return predicted
 
 def generalized_icp(config: edict,
                     data: dict,
@@ -62,7 +62,7 @@ def generalized_icp(config: edict,
 
     if config.draw_registration_results:
         draw_registration_results(points_src, points_ref, transform_gt, predicted.transformation)
-    return predicted.transformation
+    return predicted
 
 def test(config: edict):
     logger = logging.getLogger(__name__)
@@ -81,16 +81,17 @@ def test(config: edict):
             if isinstance(data[key], torch.Tensor):
                 data[key] = data[key].squeeze(0)
         if config.icp_variant == 'gicp':
-            transform_pred = generalized_icp(config, data)
+            prediction = generalized_icp(config, data)
         elif config.icp_variant == 'icp_point_to_point':
-            transform_pred = icp(config, data, estimation_method=o3d.pipelines.registration.TransformationEstimationPointToPoint())
+            prediction = icp(config, data, estimation_method=o3d.pipelines.registration.TransformationEstimationPointToPoint())
         elif config.icp_variant == 'icp_point_to_plane':
-            transform_pred = icp(config, data, estimation_method=o3d.pipelines.registration.TransformationEstimationPointToPlane())
-        elif config.icp_variant == 'null':
-            transform_pred = np.eye(4)
+            prediction = icp(config, data, estimation_method=o3d.pipelines.registration.TransformationEstimationPointToPlane())
         else:
             raise NotImplementedError(f'Unknown icp variant: {config.icp_variant}')
 
+        data['success'] = len(prediction.correspondence_set) > 0
+
+        transform_pred = prediction.transformation
         data['success'] = not (np.allclose(transform_pred,
                                       np.eye(4)))
         results = update_results(results, data, transform_pred,
