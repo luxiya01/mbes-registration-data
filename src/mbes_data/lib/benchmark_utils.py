@@ -211,7 +211,7 @@ def ransac_pose_estimation(src_pcd, tgt_pcd, src_feat, tgt_feat, mutual = False,
             max_correspondence_distance=distance_threshold,
             estimation_method=o3d.pipelines.registration.TransformationEstimationPointToPoint(False),
             ransac_n=4,
-            criteria=o3d.pipelines.registration.RANSACConvergenceCriteria(50000, 1000))
+            criteria=o3d.pipelines.registration.RANSACConvergenceCriteria(4000000, 500))
     else:
         src_pcd = to_o3d_pcd(src_pcd)
         tgt_pcd = to_o3d_pcd(tgt_pcd)
@@ -223,7 +223,7 @@ def ransac_pose_estimation(src_pcd, tgt_pcd, src_feat, tgt_feat, mutual = False,
             o3d.pipelines.registration.TransformationEstimationPointToPoint(False), ransac_n,
             [o3d.pipelines.registration.CorrespondenceCheckerBasedOnEdgeLength(0.9),
             o3d.pipelines.registration.CorrespondenceCheckerBasedOnDistance(distance_threshold)],
-            o3d.pipelines.registration.RANSACConvergenceCriteria(50000, 1000))
+            o3d.pipelines.registration.RANSACConvergenceCriteria(4000000, 500))
             
     return result_ransac.transformation
 
