@@ -18,8 +18,8 @@ from mbes_data.common.math.so3 import dcm2euler
 import os
 
 
-def update_results(results: dict, data: dict, transform_pred: torch.Tensor, config: edict, outdir: str,
-                   logger: logging.Logger):
+def update_results(results: dict, data: dict, transform_pred: torch.Tensor,
+                   config: edict, outdir: str, logger: logging.Logger):
     """Helper function to update the results dict with the new data and predicted transform.
     If the length of the results dict exceeds the threshold given in config, then we store the
     existing results dict under patches-{idxmin}-{idxmax}.npz in outdir, and create a new results dict with
@@ -44,7 +44,9 @@ def update_results(results: dict, data: dict, transform_pred: torch.Tensor, conf
     }
     return results
 
-def save_results_to_file(logger: logging.Logger, results: dict, config: edict, outdir: str):
+
+def save_results_to_file(logger: logging.Logger, results: dict, config: edict,
+                         outdir: str):
     """ Save the results to file, separated by data filenames."""
     pair_indices = set(results.keys())
     min_idx = min(pair_indices)
@@ -52,24 +54,34 @@ def save_results_to_file(logger: logging.Logger, results: dict, config: edict, o
 
     logger.info(f'Saving results for pairs ({min_idx}, {max_idx}) to {outdir}')
     np.savez(f'{outdir}/pairs_{min_idx}_to_{max_idx}_res.npz',
-                results=results,
-                config=config,
-                allow_pickle=True)
+             results=results,
+             config=config,
+             allow_pickle=True)
 
-def compute_metrics_from_results_folder(logger: logging.Logger, results_folder: str, use_transform: str = 'null', print: bool = True):
+
+def compute_metrics_from_results_folder(logger: logging.Logger,
+                                        results_folder: str,
+                                        use_transform: str = 'null',
+                                        print: bool = True):
     """ Compute metrics from the results files and log to logger."""
     if use_transform not in ['null', 'pred', 'gt']:
-        raise ValueError('Invalid use_transform arg: {}. Supports [null, pred, gt]'.format(use_transform))
-    logger.info('Computing metrics using {} tranform from results folder: {}'
-                 .format(use_transform, results_folder))
+        raise ValueError(
+            'Invalid use_transform arg: {}. Supports [null, pred, gt]'.format(
+                use_transform))
+    logger.info(
+        'Computing metrics using {} tranform from results folder: {}'.format(
+            use_transform, results_folder))
 
     all_metrics = copy.deepcopy(ALL_METRICS_TEMPLATE)
     config = None
-    results_files = sorted([x for x in os.listdir(results_folder) if x.endswith('.npz')
-                            and 'metrics' not in x])
+    results_files = sorted([
+        x for x in os.listdir(results_folder)
+        if x.endswith('.npz') and 'metrics' not in x
+    ])
     for results_file in results_files:
         logger.info('Loading results from {}'.format(results_file))
-        file_content = np.load(os.path.join(results_folder, results_file), allow_pickle=True)
+        file_content = np.load(os.path.join(results_folder, results_file),
+                               allow_pickle=True)
         results = file_content['results'].item()
         if not config:
             config = file_content['config'].item()
@@ -83,42 +95,47 @@ def compute_metrics_from_results_folder(logger: logging.Logger, results_folder: 
             if use_transform == 'pred':
                 pred_transform = data['transform_pred']
             elif use_transform == 'gt':
-                pred_transform = to_tsfm(data['transform_gt_rot'], data['transform_gt_trans'])
+                pred_transform = to_tsfm(data['transform_gt_rot'],
+                                         data['transform_gt_trans'])
             else:
-                pred_transform = np.eye(4) # null transform
+                pred_transform = np.eye(4)  # null transform
             data_metric = compute_metrics(data, pred_transform, config)
             all_metrics = update_metrics_dict(all_metrics, data_metric)
     summary = summarize_metrics(all_metrics)
     if print:
-        print_metrics(logger, summary, title=f'{use_transform.upper()} Metrics')
+        print_metrics(logger,
+                      summary,
+                      title=f'{use_transform.upper()} Metrics')
 
     summary_and_all_metrics = {'all_metrics': all_metrics, 'summary': summary}
     np.savez(os.path.join(results_folder, f'{use_transform}_metrics.npz'),
-                **summary_and_all_metrics)
+             **summary_and_all_metrics)
     return summary_and_all_metrics
+
 
 #========================================================================================
 # Below: Point cloud registration metrics computation
 #========================================================================================
 
 ALL_METRICS_TEMPLATE = {
-  'fmr_wrt_distances': defaultdict(list),
-  'fmr_inlier_ratio': defaultdict(list),
-  'fmr_wrt_inlier_ratio': defaultdict(list),
-  'registration_mse': [],
-  'consistency': [],
-  'std_of_mean': [],
-  'std_of_points': [],
-  'hit_by_one': [],
-  'hit_by_both': [],
-  'r_mse': [],
-  't_mse': [],
-  'r_mae': [],
-  't_mae': [],
-  'err_r_deg': [],
-  'err_t': [],
-  'success': []
+    'fmr_wrt_distances': defaultdict(list),
+    'fmr_inlier_ratio': defaultdict(list),
+    'fmr_wrt_inlier_ratio': defaultdict(list),
+    'registration_mse': [],
+    'consistency': [],
+    'std_of_mean': [],
+    'std_of_points': [],
+    'hit_by_one': [],
+    'hit_by_both': [],
+    'r_mse': [],
+    't_mse': [],
+    'r_mae': [],
+    't_mae': [],
+    'err_r_deg': [],
+    'err_t': [],
+    'success': []
 }
+
 
 def _construct_kd_tree_from_xy_values(points: np.ndarray,
                                       transform: np.ndarray = None) -> tuple:
@@ -130,9 +147,9 @@ def _construct_kd_tree_from_xy_values(points: np.ndarray,
     transformed_points = np.array(pcd.points)
     return transformed_points, KDTree(transformed_points[:, :2])
 
-def _construct_query_tree(min_x: float, min_y: float,
-                          num_rows: float, num_cols: float,
-                          resolution: float):
+
+def _construct_query_tree(min_x: float, min_y: float, num_rows: float,
+                          num_cols: float, resolution: float):
     x = np.linspace(min_x + (0.5 * resolution),
                     min_x + (num_rows - 1 + 0.5) * resolution, num_rows)
     y = np.linspace(min_y + (0.5 * resolution),
@@ -141,6 +158,7 @@ def _construct_query_tree(min_x: float, min_y: float,
     queries = np.stack((xv.flatten(), yv.flatten()), axis=-1)
     queries_tree = KDTree(queries)
     return queries, queries_tree
+
 
 def compute_consistency_metrics(data: dict,
                                 transform_pred: np.array,
@@ -166,8 +184,10 @@ def compute_consistency_metrics(data: dict,
     hit_by_both = np.zeros((num_rows, num_cols))
     hit_by_one = np.zeros((num_rows, num_cols))
 
-    queries, queries_tree = _construct_query_tree(min_x=min_x, min_y=min_y,
-                                                  num_rows=num_rows, num_cols=num_cols,
+    queries, queries_tree = _construct_query_tree(min_x=min_x,
+                                                  min_y=min_y,
+                                                  num_rows=num_rows,
+                                                  num_cols=num_cols,
                                                   resolution=resolution)
 
     std_src = queries_tree.query_ball_tree(src_tree, resolution * .5)
@@ -186,12 +206,15 @@ def compute_consistency_metrics(data: dict,
 
         maxmin_dist_src_to_ref, maxmin_dist_ref_to_src = 0, 0
         if len(hits_consistency_src) > 0 and len(std_ref_idx) > 0:
-            maxmin_dist_ref_to_src = np.min(cdist(ref_points[std_ref_idx], src_points[hits_consistency_src]), axis=1).max()
+            maxmin_dist_ref_to_src = np.min(cdist(
+                ref_points[std_ref_idx], src_points[hits_consistency_src]),
+                                            axis=1).max()
         if len(hits_consistency_ref) > 0 and len(std_src_idx) > 0:
-            maxmin_dist_src_to_ref = np.min(cdist(src_points[std_src_idx], ref_points[hits_consistency_ref]), axis=1).max()
-        consistency_metric[row, col] = np.max([maxmin_dist_src_to_ref,
-                                               maxmin_dist_ref_to_src])
-
+            maxmin_dist_src_to_ref = np.min(cdist(
+                src_points[std_src_idx], ref_points[hits_consistency_ref]),
+                                            axis=1).max()
+        consistency_metric[row, col] = np.max(
+            [maxmin_dist_src_to_ref, maxmin_dist_ref_to_src])
 
         if len(std_src_idx) == 0 and len(std_ref_idx) == 0:
             continue
@@ -342,8 +365,10 @@ def compute_recall_metrics(data: dict, transform_pred: np.ndarray) -> dict:
     return recall_metrics
 
 
-def compute_metrics(data: dict, transform_pred: np.ndarray,
-                    config: edict, has_scaled: bool = False) -> dict:
+def compute_metrics(data: dict,
+                    transform_pred: np.ndarray,
+                    config: edict,
+                    has_scaled: bool = False) -> dict:
     """ Compute the metrics for the predicted transformation,
         including the recall metrics, the registration MSE and the
         metrics included in OverlapPredator.
@@ -371,7 +396,7 @@ def compute_metrics(data: dict, transform_pred: np.ndarray,
     recall = compute_recall_metrics(data, transform_pred)
     predator_metrics = compute_overlap_predator_metrics(data, transform_pred)
 
-    resolution = config.voxel_size*2
+    resolution = config.voxel_size * 2
     consistency_metrics = compute_consistency_metrics(data,
                                                       transform_pred,
                                                       resolution=resolution)
@@ -481,8 +506,8 @@ def print_metrics(logger,
         ['{:.2f}m'.format(c) for c in np.arange(0, 2, 0.1)])))
     logger.info('values                      |{}'.format(' | '.join([
         '{:.2f}%'.format(
-            np.mean(summary_metrics['registration_rmse_per_pointcloud'] < c) * 100)
-        for c in np.arange(0, 2, 0.1)
+            np.mean(summary_metrics['registration_rmse_per_pointcloud'] < c) *
+            100) for c in np.arange(0, 2, 0.1)
     ])))
 
     # Log FMR wrt distances (meters)
@@ -530,8 +555,8 @@ def print_metrics(logger,
     logger.info('----------------')
 
     # Log success rate
-    logger.info(
-        'Success rate: {:.2f}%'.format(summary_metrics['success'] * 100))
+    logger.info('Success rate: {:.2f}%'.format(summary_metrics['success'] *
+                                               100))
     logger.info('END OF METRICS LOGGING!')
     logger.info('=' * 60)
 
@@ -550,7 +575,8 @@ def summarize_metrics(metrics):
     summarized = {}
     for k in metrics:
         if k == 'registration_mse':
-            summarized['registration_rmse_per_pointcloud'] = np.sqrt(metrics[k])
+            summarized['registration_rmse_per_pointcloud'] = np.sqrt(
+                metrics[k])
             summarized['registration_rmse'] = np.sqrt(np.mean(metrics[k]))
 
         elif k.endswith('mse'):
