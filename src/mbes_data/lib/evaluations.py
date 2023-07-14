@@ -42,6 +42,11 @@ def update_results(results: dict, data: dict, transform_pred: torch.Tensor,
         'transform_pred': to_array(transform_pred),
         'success': data['success']
     }
+    if 'feat_src' in data.keys():
+        results[idx]['feat_src_points'] = to_array(data['feat_src_points'])
+        results[idx]['feat_ref_points'] = to_array(data['feat_ref_points'])
+        results[idx]['feat_src'] = to_array(data['feat_src'])
+        results[idx]['feat_ref'] = to_array(data['feat_ref'])
     return results
 
 
@@ -242,6 +247,14 @@ def compute_consistency_metrics(data: dict,
 
 
 def get_mutual_nearest_neighbor(points_src, points_ref, trans):
+    """Return the mutual nearest neighbors of points_src and points_ref
+    under the transformation trans.
+
+    Args:
+        points_src: o3d.geometry.PointCloud
+        points_ref: o3d.geometry.PointCloud
+        trans: np.ndarray shape (4, 4)
+    """
     points_src.transform(trans)
     pcd_tree_src = o3d.geometry.KDTreeFlann(points_src)
     pcd_tree_ref = o3d.geometry.KDTreeFlann(points_ref)
@@ -260,23 +273,47 @@ def get_mutual_nearest_neighbor(points_src, points_ref, trans):
             correspondences.append([idx_src[0], idx_ref[0]])
     return np.array(correspondences)
 
+def get_mutual_nearest_neighbor_based_on_feature_matching(features_src, features_ref):
+    """Return the mutual nearest neighbors of feat_src_points and feat_ref_points based
+    on their associated features.
 
-def get_predicted_correspondence_gt_distance(
-        data: dict, transform_pred: np.ndarray) -> np.ndarray:
-    """ Compute the mutual nearest neighbor correspondences under the predicted transformation,
+    Args:
+        feature_src: np.ndarray shape (num_feature_points_src, feature_dim)
+        feature_ref: np.ndarray shape (num_feature_points_ref, feature_dim)
+    """
+    src_tree = o3d.geometry.KDTreeFlann(features_src.T)
+    ref_tree = o3d.geometry.KDTreeFlann(features_ref.T)
+
+    correspondences = []
+    for i, feat_ref in enumerate(features_ref):
+        [_, idx_src, dist_src] = src_tree.search_knn_vector_xd(feat_ref, 1)
+        corr_feat_src = features_src[idx_src[0]]
+        [_, idx_ref, dist_ref] = ref_tree.search_knn_vector_xd(corr_feat_src, 1)
+
+        if i == idx_ref[0]:
+            correspondences.append([idx_src[0], idx_ref[0]])
+    return np.array(correspondences)
+
+
+def get_predicted_correspondence_gt_distance(data: dict) -> np.ndarray:
+    """ Compute the mutual nearest neighbor correspondences using feature matching,
     then compute the Euclidean distance between the GT-transformed source points and the
     reference points. The returned distances are used for feature match recall evaluation."""
 
-    # Compute correspondences under predicted transformation
+
+    src_points = data['feat_src_points']
+    ref_points = data['feat_ref_points']
+    # Compute correspondences based on feature matching
     # corr_pred.shape = [num_cor, 2]
     # corr_pred[i] = (idx_src, idx_ref)
-    corr_pred = get_mutual_nearest_neighbor(to_o3d_pcd(data['points_src']),
-                                            to_o3d_pcd(data['points_ref']),
-                                            transform_pred)
+    corr_pred = get_mutual_nearest_neighbor_based_on_feature_matching(
+        features_src=data['feat_src'],
+        features_ref=data['feat_ref'])
+    print(f'corr_pred.shape: {corr_pred.shape}')
 
     # Compute distances under ground truth transformation
-    points_ref = to_o3d_pcd(data['points_ref'])
-    points_src_gt_trans = to_o3d_pcd(data['points_src'])
+    points_ref = to_o3d_pcd(ref_points)
+    points_src_gt_trans = to_o3d_pcd(src_points)
     gt_trans = to_tsfm(data['transform_gt_rot'], data['transform_gt_trans'])
     points_src_gt_trans.transform(gt_trans)
 
@@ -301,8 +338,8 @@ def fmr_wrt_distances(distances: np.ndarray, inlier_ratio_thresh=0.05) -> dict:
     fmr_wrt_distances = defaultdict(int)
     fmr_inlier_ratios = defaultdict(int)
     for distance_threshold in range(
-            0, 21):  # from 0.0 to 2.0 meters with 0.1 m step
-        distance_threshold = distance_threshold / 10.
+            0, 21):  # from 0.0 to 10.0 meters with 0.5 m step
+        distance_threshold = distance_threshold / 2.
         inlier_percentage = (distances < distance_threshold).mean()
         success = inlier_percentage > inlier_ratio_thresh
 
@@ -315,7 +352,7 @@ def fmr_wrt_distances(distances: np.ndarray, inlier_ratio_thresh=0.05) -> dict:
     }
 
 
-def fmr_wrt_inlier_ratio(distances: np.ndarray, distance_threshold=1.) -> dict:
+def fmr_wrt_inlier_ratio(distances: np.ndarray, distance_threshold=2.) -> dict:
     """
     Args:
         distances: Euclidean distances between 1 pair of GT-transformed source points and reference points
@@ -354,7 +391,9 @@ def registration_mse(data: dict, transform_pred: np.ndarray) -> float:
 
 
 def compute_recall_metrics(data: dict, transform_pred: np.ndarray) -> dict:
-    """ Compute the recall metrics for the predicted transformation. """
+    """ Compute the recall metrics.
+    The Feature Match Recall (FMR) metrics are computed using the mutual nearest neighbors
+    in the feature space, whilst the registration MSE is computed using the transform_pred."""
     distances = get_predicted_correspondence_gt_distance(data, transform_pred)
     recall_metrics = {}
     fmr_wrt_distance = fmr_wrt_distances(distances)
