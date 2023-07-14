@@ -300,9 +300,12 @@ def get_predicted_correspondence_gt_distance(data: dict) -> np.ndarray:
     then compute the Euclidean distance between the GT-transformed source points and the
     reference points. The returned distances are used for feature match recall evaluation."""
 
-
-    src_points = data['feat_src_points']
-    ref_points = data['feat_ref_points']
+    if 'feat_src_pos' and 'feat_ref_pos' in data.keys():
+        src_points = data['feat_src_pos'].astype(np.float64)
+        ref_points = data['feat_ref_pos'].astype(np.float64)
+    else:
+        src_points = data['feat_src_points'].astype(np.float64)
+        ref_points = data['feat_ref_points'].astype(np.float64)
     # Compute correspondences based on feature matching
     # corr_pred.shape = [num_cor, 2]
     # corr_pred[i] = (idx_src, idx_ref)
@@ -316,6 +319,10 @@ def get_predicted_correspondence_gt_distance(data: dict) -> np.ndarray:
     points_src_gt_trans = to_o3d_pcd(src_points)
     gt_trans = to_tsfm(data['transform_gt_rot'], data['transform_gt_trans'])
     points_src_gt_trans.transform(gt_trans)
+
+    # Return empty array if no mutual correspondences are found
+    if len(corr_pred) == 0:
+        return np.array([])
 
     corr_points_src_gt_trans = np.array(
         points_src_gt_trans.points)[corr_pred[:, 0]]
@@ -340,7 +347,10 @@ def fmr_wrt_distances(distances: np.ndarray, inlier_ratio_thresh=0.05) -> dict:
     for distance_threshold in range(
             0, 21):  # from 0.0 to 10.0 meters with 0.5 m step
         distance_threshold = distance_threshold / 2.
-        inlier_percentage = (distances < distance_threshold).mean()
+
+        inlier_percentage = 0
+        if len(distances) > 0:
+            inlier_percentage = (distances < distance_threshold).mean()
         success = inlier_percentage > inlier_ratio_thresh
 
         fmr_inlier_ratios[distance_threshold] = inlier_percentage
@@ -394,12 +404,14 @@ def compute_recall_metrics(data: dict, transform_pred: np.ndarray) -> dict:
     """ Compute the recall metrics.
     The Feature Match Recall (FMR) metrics are computed using the mutual nearest neighbors
     in the feature space, whilst the registration MSE is computed using the transform_pred."""
-    distances = get_predicted_correspondence_gt_distance(data, transform_pred)
+
     recall_metrics = {}
-    fmr_wrt_distance = fmr_wrt_distances(distances)
-    recall_metrics['fmr_wrt_distances'] = fmr_wrt_distance['fmr_wrt_distances']
-    recall_metrics['fmr_inlier_ratio'] = fmr_wrt_distance['fmr_inlier_ratios']
-    recall_metrics['fmr_wrt_inlier_ratio'] = fmr_wrt_inlier_ratio(distances)
+    if 'feat_src' in data.keys():
+        distances = get_predicted_correspondence_gt_distance(data)
+        fmr_wrt_distance = fmr_wrt_distances(distances)
+        recall_metrics['fmr_wrt_distances'] = fmr_wrt_distance['fmr_wrt_distances']
+        recall_metrics['fmr_inlier_ratio'] = fmr_wrt_distance['fmr_inlier_ratios']
+        recall_metrics['fmr_wrt_inlier_ratio'] = fmr_wrt_inlier_ratio(distances)
     recall_metrics['registration_mse'] = registration_mse(data, transform_pred)
     return recall_metrics
 
