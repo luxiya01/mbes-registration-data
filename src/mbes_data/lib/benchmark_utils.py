@@ -225,7 +225,7 @@ def ransac_pose_estimation(src_pcd, tgt_pcd, src_feat, tgt_feat, mutual = False,
             o3d.pipelines.registration.CorrespondenceCheckerBasedOnDistance(distance_threshold)],
             o3d.pipelines.registration.RANSACConvergenceCriteria(4000000, 500))
             
-    return result_ransac.transformation
+    return result_ransac
 
 def get_inlier_ratio(src_pcd, tgt_pcd, src_feat, tgt_feat, rot, trans, inlier_distance_threshold = 0.1):
     """
