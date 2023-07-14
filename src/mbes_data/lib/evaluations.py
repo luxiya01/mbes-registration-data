@@ -373,7 +373,10 @@ def fmr_wrt_inlier_ratio(distances: np.ndarray, distance_threshold=2.) -> dict:
     fmr_wrt_inlier_ratio = defaultdict(int)
     for inlier_ratio in range(0, 21):  # 0% to 20% with 1% step
         inlier_ratio = inlier_ratio / 100.
-        inlier_percentage = (distances < distance_threshold).mean()
+
+        inlier_percentage = 0
+        if len(distances) > 0:
+            inlier_percentage = (distances < distance_threshold).mean()
         success = inlier_percentage > inlier_ratio
         fmr_wrt_inlier_ratio[inlier_ratio] = success
 
@@ -549,6 +552,49 @@ def print_metrics(logger,
     logger.info('Translation error {:.4g}(mean) | {:.4g}(rmse)'.format(
         summary_metrics['err_t_mean'], summary_metrics['err_t_rmse']))
 
+    # Log translation error and rotation errors for only successfully recalled pairs
+    logger.info('----------------')
+    logger.info('Rotation and translation errors for successfully recalled pairs at '
+                'rotation error < 5 deg and translation error < 10 m')
+    logger.info('Recall: {:.2f}%'.format(
+        summary_metrics['rot_and_trans_at_thresh']['recall'] * 100))
+    logger.info('Rotation error {:.4f}(deg, mean) | {:.4f}(deg, rmse)'.format(
+        summary_metrics['rot_and_trans_at_thresh']['err_r_deg_mean'],
+        summary_metrics['rot_and_trans_at_thresh']['err_r_deg_rmse']))
+    logger.info('Translation error {:.4g}(mean) | {:.4g}(rmse)'.format(
+        summary_metrics['rot_and_trans_at_thresh']['err_t_mean'],
+        summary_metrics['rot_and_trans_at_thresh']['err_t_rmse']))
+
+    # Log recall of transformation @ rotation and translation thresholds
+    logger.info('----------------')
+    logger.info('Recall of transformation @ rotation and translation thresholds')
+    logger.info('Recall wrt translation error threshold (m)|{}'.format(' | '.join(
+        ['{:.2f}m'.format(c) for c in summary_metrics['recall_at_trans_thresh'].keys()])))
+    logger.info('Recall values |{}'.format(' | '.join(
+        ['{:.2f}%'.format(c['recall'] * 100) for c in summary_metrics['recall_at_trans_thresh'].values()])))
+    logger.info('Translation error (deg, mean) |{}'.format(' | '.join(
+        ['{:.4f}'.format(c['err_t_mean']) for c in summary_metrics['recall_at_trans_thresh'].values()])))
+    logger.info('Translation error (deg, rmse) |{}'.format(' | '.join(
+        ['{:.4f}'.format(c['err_t_rmse']) for c in summary_metrics['recall_at_trans_thresh'].values()])))
+    logger.info('Rotation error (deg, mean) |{}'.format(' | '.join(
+        ['{:.4f}'.format(c['err_r_deg_mean']) for c in summary_metrics['recall_at_trans_thresh'].values()])))
+    logger.info('Rotation error (deg, rmse) |{}'.format(' | '.join(
+        ['{:.4f}'.format(c['err_r_deg_rmse']) for c in summary_metrics['recall_at_trans_thresh'].values()])))
+    logger.info('----------------')
+    logger.info('Recall wrt rotation error threshold (deg)|{}'.format(' | '.join(
+        ['{:.2f}deg'.format(c) for c in summary_metrics['recall_at_rot_thresh'].keys()])))
+    logger.info('Recall values |{}'.format(' | '.join(
+        ['{:.2f}%'.format(c['recall'] * 100) for c in summary_metrics['recall_at_rot_thresh'].values()])))
+    logger.info('Translation error (deg, mean) |{}'.format(' | '.join(
+        ['{:.4f}'.format(c['err_t_mean']) for c in summary_metrics['recall_at_rot_thresh'].values()])))
+    logger.info('Translation error (deg, rmse) |{}'.format(' | '.join(
+        ['{:.4f}'.format(c['err_t_rmse']) for c in summary_metrics['recall_at_rot_thresh'].values()])))
+    logger.info('Rotation error (deg, mean) |{}'.format(' | '.join(
+        ['{:.4f}'.format(c['err_r_deg_mean']) for c in summary_metrics['recall_at_rot_thresh'].values()])))
+    logger.info('Rotation error (deg, rmse) |{}'.format(' | '.join(
+        ['{:.4f}'.format(c['err_r_deg_rmse']) for c in summary_metrics['recall_at_rot_thresh'].values()])))
+
+
     # Log registration RMSE and % pairs with <= x meters RMSE
     logger.info('----------------')
     logger.info('Registration RMSE: {:.4f}(meters)'.format(
@@ -643,4 +689,36 @@ def summarize_metrics(metrics):
         else:
             summarized[k] = np.mean(metrics[k])
 
+    summarized['rot_and_trans_at_thresh'] = get_rot_and_trans_err_at_thresh(metrics)
+    summarized['recall_at_rot_thresh'] = {}
+    summarized['recall_at_trans_thresh'] = {}
+    for trans in range(20):
+        summarized['recall_at_trans_thresh'][trans] = get_rot_and_trans_err_at_thresh(
+            metrics, rot_thresh=np.inf, trans_thresh=trans
+        )
+    for rot in range(10):
+        summarized['recall_at_rot_thresh'][rot] = get_rot_and_trans_err_at_thresh(
+            metrics, rot_thresh=rot, trans_thresh=np.inf
+        )
+
+    return summarized
+
+
+def get_rot_and_trans_err_at_thresh(metrics, rot_thresh=5, trans_thresh=10):
+    summarized = {}
+    translation_errors = metrics['err_t']
+    rotation_errors = metrics['err_r_deg']
+
+    trans_mask = translation_errors < trans_thresh
+    rot_mask = rotation_errors < rot_thresh
+    mask = np.logical_and(trans_mask, rot_mask)
+
+    summarized['recall'] = np.mean(mask)
+    summarized['err_t_mean'] = np.mean(translation_errors[mask])
+    summarized['err_t_rmse'] = np.sqrt(np.mean(translation_errors[mask]**2))
+    summarized['err_r_deg_mean'] = np.mean(rotation_errors[mask])
+    summarized['err_r_deg_rmse'] = np.sqrt(np.mean(rotation_errors[mask]**2))
+
+    for k, v in summarized.items():
+        summarized[k] = np.nan_to_num(v)
     return summarized
