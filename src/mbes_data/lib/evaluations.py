@@ -368,7 +368,7 @@ def fmr_wrt_inlier_ratio(distances: np.ndarray, distance_threshold=2.) -> dict:
         distances: Euclidean distances between 1 pair of GT-transformed source points and reference points
                     for all pairs of point clouds in the dataset
         distance_thresh: Inlier distance threshold
-                         default = 1.m
+                         default = 2.m
     """
     fmr_wrt_inlier_ratio = defaultdict(int)
     for inlier_ratio in range(0, 21):  # 0% to 20% with 1% step
@@ -600,11 +600,11 @@ def print_metrics(logger,
     logger.info('Registration RMSE: {:.4f}(meters)'.format(
         summary_metrics['registration_rmse']))
     logger.info('%pairs with <= x meters RMSE|{}'.format(' | '.join(
-        ['{:.2f}m'.format(c) for c in np.arange(0, 2, 0.1)])))
+        ['{:.2f}m'.format(c) for c in np.arange(0, 10.1, 0.5)])))
     logger.info('values                      |{}'.format(' | '.join([
         '{:.2f}%'.format(
             np.mean(summary_metrics['registration_rmse_per_pointcloud'] < c) *
-            100) for c in np.arange(0, 2, 0.1)
+            100) for c in np.arange(0, 10.1, 0.5)
     ])))
 
     # Log FMR wrt distances (meters)
