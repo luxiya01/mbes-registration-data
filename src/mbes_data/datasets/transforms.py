@@ -60,7 +60,7 @@ def uniform_on_xy_plane(num: int = None, forbidden_direction: np.ndarray = None)
 
     if forbidden_direction is not None and np.greater_equal(np.abs(
         np.dot(forbidden_direction, np.array([x, y]))), 0.9):
-        print('Rerunning uniform sampling on xy plane due to forbidden direction')
+        # print('Rerunning uniform sampling on xy plane due to forbidden direction')
         return uniform_on_xy_plane(num, forbidden_direction)
 
     return np.stack((x, y, z), axis=-1)
