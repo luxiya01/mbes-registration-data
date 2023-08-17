@@ -3,21 +3,21 @@ misc:
   gpu_mode: True
   verbose: True
   results_length: 100
-  exp_dir: '20230815-data-no-overlap-test'
+  exp_dir: '20230817-tmp69-70-hyperparam'
 
 dataset:
   dataset: multibeam
   benchmark: multibeam
-  subset_train: train
-  subset_val: val
-  subset_test: test
+  subset_train: tmp69-70 #train
+  subset_val: tmp69-70 #val
+  subset_test: tmp69-70 #test
   root: mbes_data/data/nbp22-mission2-dotson-east
   nbr_pings_per_patch: 100
   nbr_beams_per_patch: 400
   pings_step: 20
   beams_step: 400
   pair_overlap_ratio: [0.2, 0.4, 0.6, 0.8, 1.0] # *100 %
-  num_points: 10000
+  num_points: 5000
   in_feats_dim: 1
   batch_size: 2
   num_workers: 1
