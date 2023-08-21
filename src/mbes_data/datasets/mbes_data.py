@@ -394,6 +394,10 @@ class MultibeamNpyForFCGFTraining(MultibeamNpy):
         matching_inds = get_correspondences(to_o3d_pcd(xyz0), to_o3d_pcd(xyz1),
                                             gt_trans, self.overlap_radius)
 
+        # Filter out pairs with no matching inds after ME sparse quantize
+        if matching_inds.shape[0] == 0:
+            return None
+
         # Get coords
         coords0 = np.floor(xyz0 / self.voxel_size)
         coords1 = np.floor(xyz1 / self.voxel_size)
