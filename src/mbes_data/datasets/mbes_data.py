@@ -54,6 +54,15 @@ def get_multibeam_train_datasets(args: argparse.Namespace):
                                                args.root,
                                                subset=args.subset_val,
                                                transform=val_transforms)
+    elif args.dataset_type == 'multibeam_npy_for_dgr':
+        train_data = MultibeamNpyForDGR(args,
+                                        args.root,
+                                        subset=args.subset_train,
+                                        transform=train_transforms)
+        val_data = MultibeamNpyForDGR(args,
+                                      args.root,
+                                      subset=args.subset_val,
+                                      transform=val_transforms)
     else:
         raise NotImplementedError
 
@@ -81,6 +90,11 @@ def get_multibeam_test_datasets(args: argparse.Namespace):
                                                 args.root,
                                                 subset=args.subset_test,
                                                 transform=test_transforms)
+    elif args.dataset_type == 'multibeam_npy_for_dgr':
+        test_data = MultibeamNpyForDGR(args,
+                                      args.root,
+                                      subset=args.subset_test,
+                                      transform=test_transforms)
     else:
         raise NotImplementedError
 
@@ -365,17 +379,7 @@ class MultibeamNpy(Dataset):
             'idx': item
         }
 
-
-class MultibeamNpyForFCGFTraining(MultibeamNpy):
-
-    def __getitem__(self, idx):
-        data = super().__getitem__(idx)
-
-        # Filter out pairs with no matching inds
-        if data is None:
-            print(f'No matching inds for pair {idx}!')
-            return None
-
+    def _convert_to_ME(self, data):
         _, sel0 = ME.utils.sparse_quantize(data['points_src'] /
                                            self.voxel_size,
                                            return_index=True)
@@ -383,16 +387,16 @@ class MultibeamNpyForFCGFTraining(MultibeamNpy):
                                            self.voxel_size,
                                            return_index=True)
 
-        xyz0 = data['points_src'][sel0]
-        xyz1 = data['points_ref'][sel1]
+        xyz0 = torch.from_numpy(data['points_src'][sel0])
+        xyz1 = torch.from_numpy(data['points_ref'][sel1])
 
-        feats0 = data['features_src'][sel0]
-        feats1 = data['features_ref'][sel1]
+        feats0 = torch.from_numpy(data['features_src'][sel0])
+        feats1 = torch.from_numpy(data['features_ref'][sel1])
 
         gt_trans = to_tsfm(data['transform_gt_rot'],
                            data['transform_gt_trans'])
         matching_inds = get_correspondences(to_o3d_pcd(xyz0), to_o3d_pcd(xyz1),
-                                            gt_trans, self.overlap_radius)
+                                            gt_trans, self.overlap_radius).to(dtype=torch.int32)
 
         # Filter out pairs with no matching inds after ME sparse quantize
         if matching_inds.shape[0] == 0:
@@ -404,3 +408,32 @@ class MultibeamNpyForFCGFTraining(MultibeamNpy):
 
         return (xyz0, xyz1, coords0, coords1, feats0, feats1, matching_inds,
                 gt_trans)
+
+
+class MultibeamNpyForFCGFTraining(MultibeamNpy):
+
+    def __getitem__(self, idx):
+        data = super().__getitem__(idx)
+
+        # Filter out pairs with no matching inds
+        if data is None:
+            print(f'No matching inds for pair {idx}!')
+            return None
+        return self._convert_to_ME(data)
+
+class MultibeamNpyForDGR(MultibeamNpy):
+    def __getitem__(self, idx):
+        data = super().__getitem__(idx)
+
+        # Filter out pairs with no matching inds
+        if data is None:
+            print(f'No matching inds for pair {idx}!')
+            return None
+
+        extra_package = {}
+        for k, v in data.items():
+            if isinstance(v, np.ndarray):
+                extra_package[k] = torch.from_numpy(v).float()
+            else:
+                extra_package[k] = v
+        return *self._convert_to_ME(data), data
