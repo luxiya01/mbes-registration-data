@@ -87,7 +87,12 @@ def registration_with_fpfh(config: edict,
                                        ransac_n=config.ransac_n)
     if config.draw_registration_results:
         draw_registration_results(points_src, points_ref, transform_gt, predicted.transformation)
-    return predicted
+
+    extras = {'feat_src_points': np.array(points_src.points),
+              'feat_ref_points': np.array(points_ref.points),
+              'feat_src': fpfh_src.data.T,
+              'feat_ref': fpfh_ref.data.T}
+    return predicted, extras
 
 
 def test(config: edict):
@@ -102,12 +107,13 @@ def test(config: edict):
     results = defaultdict(dict)
     outdir = os.path.join(config.exp_dir, config.method)
     os.makedirs(outdir, exist_ok=True)
-    for _, data in tqdm(enumerate(test_loader), total=len(test_set)):
+    for i, data in tqdm(enumerate(test_loader), total=len(test_set)):
         for key in data.keys():
             if isinstance(data[key], torch.Tensor):
                 data[key] = data[key].squeeze(0)
         if config.method == 'fpfh':
-            prediction = registration_with_fpfh(config, data)
+            prediction, extras = registration_with_fpfh(config, data)
+            data.update(extras)
         elif config.method == 'gicp':
             prediction = generalized_icp(config, data)
         elif config.method == 'icp_point_to_point':
