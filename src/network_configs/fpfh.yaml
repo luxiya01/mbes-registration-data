@@ -1,0 +1,5 @@
+model:
+  method: fpfh
+  # For normal computation: normal radius == overlap_radius * 2 = 1.5 * 2 = 3
+  feature_radius: 7
+  ransac_n: 3

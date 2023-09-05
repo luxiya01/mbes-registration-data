@@ -11,7 +11,7 @@ import logging
 import os
 
 from mbes_data.lib.utils import load_config, setup_seed
-from mbes_data.lib.benchmark_utils import to_o3d_pcd, to_tsfm
+from mbes_data.lib.benchmark_utils import to_o3d_pcd, to_tsfm, ransac_pose_estimation
 from mbes_data.datasets.mbes_data import get_multibeam_datasets
 from mbes_data.lib.evaluations import save_results_to_file, update_results
 setup_seed(0)
@@ -34,7 +34,7 @@ def icp(config: edict,
         estimation_method=o3d.pipelines.registration.TransformationEstimationPointToPoint()):
     points_src = to_o3d_pcd(data['points_src'])
     points_ref = to_o3d_pcd(data['points_ref'])
-    if config.icp_variant == 'icp_point_to_plane':
+    if config.method == 'icp_point_to_plane':
         points_src.estimate_normals(search_param=o3d.geometry.KDTreeSearchParamHybrid(radius=config.overlap_radius*2, max_nn=30))
         points_ref.estimate_normals(search_param=o3d.geometry.KDTreeSearchParamHybrid(radius=config.overlap_radius*2, max_nn=30))
     transform_gt = to_tsfm(data['transform_gt_rot'], data['transform_gt_trans'])
@@ -64,6 +64,32 @@ def generalized_icp(config: edict,
         draw_registration_results(points_src, points_ref, transform_gt, predicted.transformation)
     return predicted
 
+def registration_with_fpfh(config: edict,
+                           data: dict):
+    points_src = to_o3d_pcd(data['points_src'])
+    points_ref = to_o3d_pcd(data['points_ref'])
+    transform_gt = to_tsfm(data['transform_gt_rot'], data['transform_gt_trans'])
+
+    radius_normal = config.overlap_radius * 2
+    points_src.estimate_normals(search_param=o3d.geometry.KDTreeSearchParamHybrid(radius=config.overlap_radius*2, max_nn=30))
+    points_ref.estimate_normals(search_param=o3d.geometry.KDTreeSearchParamHybrid(radius=config.overlap_radius*2, max_nn=30))
+
+    radius_feature = config.feature_radius
+    fpfh_src = o3d.pipelines.registration.compute_fpfh_feature(
+        points_src,
+        o3d.geometry.KDTreeSearchParamHybrid(radius=radius_feature, max_nn=100))
+    fpfh_ref = o3d.pipelines.registration.compute_fpfh_feature(
+        points_ref,
+        o3d.geometry.KDTreeSearchParamHybrid(radius=radius_feature, max_nn=100))
+
+    predicted = ransac_pose_estimation(points_src, points_ref, fpfh_src, fpfh_ref,
+                                       distance_threshold=config.overlap_radius*2,
+                                       ransac_n=config.ransac_n)
+    if config.draw_registration_results:
+        draw_registration_results(points_src, points_ref, transform_gt, predicted.transformation)
+    return predicted
+
+
 def test(config: edict):
     logger = logging.getLogger(__name__)
     logger.setLevel(logging.INFO)
@@ -74,20 +100,22 @@ def test(config: edict):
     test_loader = DataLoader(test_set, batch_size=config.batch_size, num_workers=config.num_workers, shuffle=False)
 
     results = defaultdict(dict)
-    outdir = os.path.join(config.exp_dir, config.icp_variant)
+    outdir = os.path.join(config.exp_dir, config.method)
     os.makedirs(outdir, exist_ok=True)
     for _, data in tqdm(enumerate(test_loader), total=len(test_set)):
         for key in data.keys():
             if isinstance(data[key], torch.Tensor):
                 data[key] = data[key].squeeze(0)
-        if config.icp_variant == 'gicp':
+        if config.method == 'fpfh':
+            prediction = registration_with_fpfh(config, data)
+        elif config.method == 'gicp':
             prediction = generalized_icp(config, data)
-        elif config.icp_variant == 'icp_point_to_point':
+        elif config.method == 'icp_point_to_point':
             prediction = icp(config, data, estimation_method=o3d.pipelines.registration.TransformationEstimationPointToPoint())
-        elif config.icp_variant == 'icp_point_to_plane':
+        elif config.method == 'icp_point_to_plane':
             prediction = icp(config, data, estimation_method=o3d.pipelines.registration.TransformationEstimationPointToPlane())
         else:
-            raise NotImplementedError(f'Unknown icp variant: {config.icp_variant}')
+            raise NotImplementedError(f'Unknown method: {config.method}')
 
         data['success'] = len(prediction.correspondence_set) > 0
 
