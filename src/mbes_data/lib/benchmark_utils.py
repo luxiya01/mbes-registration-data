@@ -213,10 +213,14 @@ def ransac_pose_estimation(src_pcd, tgt_pcd, src_feat, tgt_feat, mutual = False,
             ransac_n=4,
             criteria=o3d.pipelines.registration.RANSACConvergenceCriteria(4000000, 500))
     else:
-        src_pcd = to_o3d_pcd(src_pcd)
-        tgt_pcd = to_o3d_pcd(tgt_pcd)
-        src_feats = to_o3d_feats(src_feat)
-        tgt_feats = to_o3d_feats(tgt_feat)
+        if isinstance(src_pcd,np.ndarray) or isinstance(src_pcd,torch.Tensor):
+            src_pcd = to_o3d_pcd(src_pcd)
+            tgt_pcd = to_o3d_pcd(tgt_pcd)
+            src_feats = to_o3d_feats(src_feat)
+            tgt_feats = to_o3d_feats(tgt_feat)
+        else:
+            src_feats = src_feat
+            tgt_feats = tgt_feat
 
         result_ransac = o3d.pipelines.registration.registration_ransac_based_on_feature_matching(
             src_pcd, tgt_pcd, src_feats, tgt_feats,False, distance_threshold,
