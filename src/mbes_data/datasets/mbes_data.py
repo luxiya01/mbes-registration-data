@@ -63,6 +63,15 @@ def get_multibeam_train_datasets(args: argparse.Namespace):
                                       args.root,
                                       subset=args.subset_val,
                                       transform=val_transforms)
+    elif args.dataset_type == 'multibeam_npy_for_overlap_predator':
+        train_data = MultibeamNpyForOverlapPredator(args,
+                                                    args.root,
+                                                    subset=args.subset_train,
+                                                    transform=train_transforms)
+        val_data = MultibeamNpyForOverlapPredator(args,
+                                                    args.root,
+                                                    subset=args.subset_val,
+                                                    transform=val_transforms)
     else:
         raise NotImplementedError
 
@@ -95,6 +104,11 @@ def get_multibeam_test_datasets(args: argparse.Namespace):
                                       args.root,
                                       subset=args.subset_test,
                                       transform=test_transforms)
+    elif args.dataset_type == 'multibeam_npy_for_overlap_predator':
+        test_data = MultibeamNpyForOverlapPredator(args,
+                                                    args.root,
+                                                    subset=args.subset_test,
+                                                    transform=test_transforms)
     else:
         raise NotImplementedError
 
@@ -437,3 +451,14 @@ class MultibeamNpyForDGR(MultibeamNpy):
             else:
                 extra_package[k] = v
         return *self._convert_to_ME(data), data
+
+class MultibeamNpyForOverlapPredator(MultibeamNpy):
+    def __getitem__(self, item):
+        data = super().__getitem__(item)
+
+        return (data['points_src'], data['points_ref'],
+                data['features_src'], data['features_ref'],
+                data['transform_gt_rot'], data['transform_gt_trans'],
+                data['matching_inds'],
+                data['points_src'], data['points_ref'],
+                data)
