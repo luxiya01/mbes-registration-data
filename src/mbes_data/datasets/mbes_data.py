@@ -423,6 +423,9 @@ class MultibeamNpy(Dataset):
         return (xyz0, xyz1, coords0, coords1, feats0, feats1, matching_inds,
                 gt_trans)
 
+    def reset_seed(self, seed):
+        setup_seed(seed)
+
 
 class MultibeamNpyForFCGFTraining(MultibeamNpy):
 
