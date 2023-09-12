@@ -456,8 +456,12 @@ class MultibeamNpyForDGR(MultibeamNpy):
         return *self._convert_to_ME(data), data
 
 class MultibeamNpyForOverlapPredator(MultibeamNpy):
-    def __getitem__(self, item):
-        data = super().__getitem__(item)
+    def __getitem__(self, idx):
+        data = super().__getitem__(idx)
+
+        if data is None:
+            print(f'No matching inds for pair {idx}!')
+            return None
 
         return (data['points_src'], data['points_ref'],
                 data['features_src'], data['features_ref'],
