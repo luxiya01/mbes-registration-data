@@ -188,7 +188,8 @@ def get_angle_deviation(R_pred,R_gt):
 
     return degs
 
-def ransac_pose_estimation(src_pcd, tgt_pcd, src_feat, tgt_feat, mutual = False, distance_threshold = 0.05, ransac_n = 3):
+def ransac_pose_estimation(src_pcd, tgt_pcd, src_feat, tgt_feat, mutual = False, distance_threshold = 0.05, ransac_n = 3,
+                           ransac_iterations = 4000000):
     """
     RANSAC pose estimation with two checkers
     We follow D3Feat to set ransac_n = 3 for 3DMatch and ransac_n = 4 for KITTI. 
@@ -211,7 +212,7 @@ def ransac_pose_estimation(src_pcd, tgt_pcd, src_feat, tgt_feat, mutual = False,
             max_correspondence_distance=distance_threshold,
             estimation_method=o3d.pipelines.registration.TransformationEstimationPointToPoint(False),
             ransac_n=4,
-            criteria=o3d.pipelines.registration.RANSACConvergenceCriteria(4000000, 500))
+            criteria=o3d.pipelines.registration.RANSACConvergenceCriteria(ransac_iterations, 500))
     else:
         if isinstance(src_pcd,np.ndarray) or isinstance(src_pcd,torch.Tensor):
             src_pcd = to_o3d_pcd(src_pcd)
@@ -227,7 +228,7 @@ def ransac_pose_estimation(src_pcd, tgt_pcd, src_feat, tgt_feat, mutual = False,
             o3d.pipelines.registration.TransformationEstimationPointToPoint(False), ransac_n,
             [o3d.pipelines.registration.CorrespondenceCheckerBasedOnEdgeLength(0.9),
             o3d.pipelines.registration.CorrespondenceCheckerBasedOnDistance(distance_threshold)],
-            o3d.pipelines.registration.RANSACConvergenceCriteria(4000000, 500))
+            o3d.pipelines.registration.RANSACConvergenceCriteria(ransac_iterations, 500))
             
     return result_ransac
 

@@ -83,8 +83,9 @@ def registration_with_fpfh(config: edict,
         o3d.geometry.KDTreeSearchParamHybrid(radius=radius_feature, max_nn=100))
 
     predicted = ransac_pose_estimation(points_src, points_ref, fpfh_src, fpfh_ref,
-                                       distance_threshold=config.overlap_radius*2,
-                                       ransac_n=config.ransac_n)
+                                       distance_threshold=config.voxel_size*1.5,
+                                       ransac_n=config.ransac_n,
+                                       ransac_iterations=config.ransac_iterations,)
     if config.draw_registration_results:
         draw_registration_results(points_src, points_ref, transform_gt, predicted.transformation)
 
