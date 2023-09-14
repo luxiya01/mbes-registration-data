@@ -72,6 +72,15 @@ def get_multibeam_train_datasets(args: argparse.Namespace):
                                                     args.root,
                                                     subset=args.subset_val,
                                                     transform=val_transforms)
+    elif args.dataset_type == 'multibeam_npy_for_bathynn':
+        train_data = MultibeamNpyForBathyNN(args,
+                                            args.root,
+                                            subset=args.subset_train,
+                                            transform=train_transforms)
+        val_data = MultibeamNpyForBathyNN(args,
+                                            args.root,
+                                            subset=args.subset_val,
+                                            transform=val_transforms)
     else:
         raise NotImplementedError
 
@@ -109,6 +118,11 @@ def get_multibeam_test_datasets(args: argparse.Namespace):
                                                     args.root,
                                                     subset=args.subset_test,
                                                     transform=test_transforms)
+    elif args.dataset_type == 'multibeam_npy_for_bathynn':
+        test_data = MultibeamNpyForBathyNN(args,
+                                            args.root,
+                                            subset=args.subset_test,
+                                            transform=test_transforms)
     else:
         raise NotImplementedError
 
@@ -469,3 +483,30 @@ class MultibeamNpyForOverlapPredator(MultibeamNpy):
                 data['matching_inds'],
                 data['points_src'], data['points_ref'],
                 data)
+
+class MultibeamNpyForBathyNN(MultibeamNpy):
+    def __getitem__(self, item):
+        data = super().__getitem__(item)
+
+        if data is None:
+            print(f'No matching inds for pair {item}!')
+            return None
+
+        src_pose = torch.from_numpy(np.mean(data['points_src'], axis=0).reshape(1, 3)).float()
+        tgt_pose = torch.from_numpy(np.mean(data['points_ref'], axis=0).reshape(1, 3)).float()
+
+        src_cloud = torch.from_numpy(data['points_src']).float()
+        tgt_cloud = torch.from_numpy(data['points_ref']).float()
+        src_cloud_centered = src_cloud - src_pose
+        tgt_cloud_centered = tgt_cloud - tgt_pose
+
+        src_tgt_pose = torch.cat((src_pose, tgt_pose), dim=1)
+        data_src = torch.cat((src_cloud_centered, src_cloud), dim=1)
+        data_tgt = torch.cat((tgt_cloud_centered, tgt_cloud), dim=1)
+        indices = torch.tensor([item, item])
+
+        return {'data_src': data_src,
+                'data_tgt': data_tgt,
+                'src_tgt_pose': src_tgt_pose,
+                'indices': indices,
+                'sample': data}
