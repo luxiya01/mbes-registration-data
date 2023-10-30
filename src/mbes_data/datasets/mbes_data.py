@@ -15,6 +15,7 @@ import mbes_data.common.math.se3 as se3
 from mbes_data.lib.benchmark_utils import get_correspondences, to_o3d_pcd, to_tsfm
 from mbes_data.lib.utils import setup_seed
 import MinkowskiEngine as ME
+#from torch_geometric.data import Data
 
 setup_seed(0)
 
@@ -363,8 +364,8 @@ class MultibeamNpy(Dataset):
             o3d.visualization.draw_geometries([src_pcd_o3d, tgt_pcd_o3d])
 
         # Filter out pairs with no matching inds
-        if matching_inds.shape[0] == 0:
-            return None
+        #if matching_inds.shape[0] == 0:
+        #    return None
 
         # TODO: implement custom collate_fn to handle variable number of matching_inds
         return {
@@ -505,8 +506,17 @@ class MultibeamNpyForBathyNN(MultibeamNpy):
         data_tgt = torch.cat((tgt_cloud_centered, tgt_cloud), dim=1)
         indices = torch.tensor([item, item])
 
-        return {'data_src': data_src,
-                'data_tgt': data_tgt,
-                'src_tgt_pose': src_tgt_pose,
-                'indices': indices,
-                'sample': data}
+#       return {'data_src': data_src,
+#               'data_tgt': data_tgt,
+#               'src_tgt_pose': src_tgt_pose,
+#               'indices': indices,
+#               'sample': data}
+
+        print(f'Number of points in src: {data_src.shape[0]},'
+              f'in tgt: {data_tgt.shape[0]}')
+        data_src = Data(pos=data_src.reshape(-1, 6))
+        data_tgt = Data(pos=data_tgt.reshape(-1, 6))
+        src_tgt_pose = Data(pos=src_tgt_pose.reshape(-1, 6))
+        indices = Data(x=indices.reshape(-1, 2))
+        return [data_src, data_tgt, src_tgt_pose, indices]
+
