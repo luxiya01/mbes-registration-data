@@ -167,7 +167,8 @@ def _construct_query_tree(min_x: float, min_y: float, num_rows: float,
 
 def compute_consistency_metrics(data: dict,
                                 transform_pred: np.array,
-                                resolution: float = 1) -> np.ndarray:
+                                resolution: float = 1,
+                                return_matrix: bool = False) -> dict:
     """ Compute the consistency metrics at a specified resolution."""
     src_points, src_tree = _construct_kd_tree_from_xy_values(
         points=data['points_src'], transform=transform_pred)
@@ -237,13 +238,16 @@ def compute_consistency_metrics(data: dict,
     mean_of_grid_with_values = lambda grid: np.mean(grid[grid > 0]) if np.sum(
         grid > 0) > 0 else 0
 
-    return {
+    results = {
         'consistency': mean_of_grid_with_values(consistency_metric),
         'std_of_mean': mean_of_grid_with_values(std_of_mean_metric),
         'std_of_points': mean_of_grid_with_values(std_of_points_metric),
         'hit_by_both': hit_by_both.mean(),
-        'hit_by_one': hit_by_one.mean()
+        'hit_by_one': hit_by_one.mean(),
     }
+    if return_matrix:
+        results['consistency_matrix'] = consistency_metric
+    return results
 
 
 def get_mutual_nearest_neighbor(points_src, points_ref, trans):
