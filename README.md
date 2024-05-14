@@ -38,5 +38,5 @@ In this project, we use part of the official implementations of the following wo
 - [DGR](https://github.com/chrischoy/DeepGlobalRegistration)
 - [Predator](https://github.com/prs-eth/OverlapPredator)
 - [BathyNN](https://github.com/tjr16/bathy_nn_learning)
-- 
+
 We thank the respective authors for open sourcing their work.
