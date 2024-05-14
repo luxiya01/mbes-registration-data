@@ -13,21 +13,22 @@ If you have any questions, feel free to contact us at:
 
 # Instructions
 ## Repository information
-This repository contains the implementation for the MBES Dataset class and data loader, the classical methods GICP and FPFH, as well as the code for metrics computation and evaluations. The repositories for the learning-based methods, the pretrained models, as well as the instruction for installations, are to be updated.
+This repository contains the implementation for the MBES Dataset class and data loader, the classical methods GICP and FPFH, as well as the code for metrics computation and evaluations. 
+
+**The repositories for the learning-based methods, the pretrained models, as well as the instruction for installations, are to be released shortly.**
 
 ## Dataset and pretrained models
-To be updated.
+**To be released shortly.**
 
 ## Citation
 If you find this code useful for your work, please consider citing:
 ```bibtex
-@misc{ling2024benchmarking,
-      title={Benchmarking Classical and Learning-Based Multibeam Point Cloud Registration}, 
-      author={Li Ling and Jun Zhang and Nils Bore and John Folkesson and Anna Wåhlin},
-      year={2024},
-      eprint={2405.06279},
-      archivePrefix={arXiv},
-      primaryClass={cs.CV}
+@inproceedings{ling2024benchmarking,
+            title={Benchmarking Classical and Learning-Based Multibeam Point Cloud Registration}, 
+            author={Ling, Li and Zhang, Jun and Bore, Nils and Folkesson, John and Wåhlin, Anna},
+            booktitle={2024 IEEE International Conference on Robotics and Automation (ICRA)},
+            year={2024},
+            organization={IEEE}
 }
 ```
 
@@ -37,4 +38,5 @@ In this project, we use part of the official implementations of the following wo
 - [DGR](https://github.com/chrischoy/DeepGlobalRegistration)
 - [Predator](https://github.com/prs-eth/OverlapPredator)
 - [BathyNN](https://github.com/tjr16/bathy_nn_learning)
+- 
 We thank the respective authors for open sourcing their work.
