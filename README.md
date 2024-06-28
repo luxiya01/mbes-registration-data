@@ -1,4 +1,5 @@
-# [ICRA 2024] Benchmarking Classical and Learning-Based Multibeam Point Cloud Registration
+# [ICRA 2024] Benchmarking Classical and Learning-Based Multibeam Point Cloud Registration*
+The data is now released and can be found [here](https://kth-my.sharepoint.com/:f:/g/personal/liling_ug_kth_se/EpXHLtknBFVIpvBIdMcNSOMBu8SPQIOt7tUNeUvQwB-O8g?e=ORQwEn).
 This repository accompanies the ICRA 2024 paper:
 ### [Benchmarking Classical and Learning-Based Multibeam Point Cloud Registration](https://arxiv.org/pdf/2405.06279)
 [Li Ling](https://www.kth.se/profile/liling)<sup>1</sup>, [Jun Zhang](https://www.tugraz.at/institute/icg/research/team-fraundorfer/people/jun-zhang)<sup>2</sup>, [Nils Bore](https://scholar.google.com/citations?user=wPea4DkAAAAJ&hl=en&oi=ao)<sup>3</sup>, [John Folkesson](https://www.kth.se/profile/johnf)<sup>1</sup>, [Anna Wåhlin](https://www.gu.se/en/about/find-staff/annawahlin)<sup>4</sup>
@@ -12,13 +13,15 @@ If you have any questions, feel free to contact us at:
 - Li Ling (liling@kth.se)
 
 # Instructions
-## Repository information
 This repository contains the implementation for the MBES Dataset class and data loader, the classical methods GICP and FPFH, as well as the code for metrics computation and evaluations. 
 
-**The repositories for the learning-based methods, the pretrained models, as well as the instruction for installations, are to be released shortly.**
+The code use to run the learning-based models are found in the following repository forks:
+- [FCGF](https://github.com/luxiya01/FCGF/tree/mbes_data)
+- [DGR](https://github.com/luxiya01/DeepGlobalRegistration/tree/mbes_dataset)
+- [Predator](https://github.com/luxiya01/OverlapPredator/tree/mbes_data)
+- [BathyNN](https://github.com/luxiya01/bathy_nn_learning/tree/mbes-data)
 
-## Dataset and pretrained models
-**To be released shortly.**
+The dataset, pretrained models and evaluation results can be found [here](https://kth-my.sharepoint.com/:f:/g/personal/liling_ug_kth_se/EpXHLtknBFVIpvBIdMcNSOMBu8SPQIOt7tUNeUvQwB-O8g?e=ORQwEn). Note that the dataset only contains the patches segmented according to the paper description. To construct a registration dataset, please consult [main.py](https://github.com/luxiya01/mbes-registration-data/blob/main/src/main.py). If you want the exact data pairs and transforms as used in the paper, you can also extract these from the _npz_ files containing in each method's evaluation results.
 
 ## Citation
 If you find this code useful for your work, please consider citing:
