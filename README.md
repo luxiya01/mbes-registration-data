@@ -1,5 +1,5 @@
 # [ICRA 2024] Benchmarking Classical and Learning-Based Multibeam Point Cloud Registration*
-The data is now released and can be found [here](https://kth-my.sharepoint.com/:f:/g/personal/liling_ug_kth_se/EpXHLtknBFVIpvBIdMcNSOMBu8SPQIOt7tUNeUvQwB-O8g?e=ORQwEn).
+The data is now released and can be found [here](https://kth-my.sharepoint.com/:u:/g/personal/torroba_ug_kth_se/EaNrC-Z23ChAkk5cOaYnNHIBPA7cyVxr5wcw7G2HAu8CBw?e=Cc1CFT).
 This repository accompanies the ICRA 2024 paper:
 ### [Benchmarking Classical and Learning-Based Multibeam Point Cloud Registration](https://arxiv.org/pdf/2405.06279)
 [Li Ling](https://www.kth.se/profile/liling)<sup>1</sup>, [Jun Zhang](https://www.tugraz.at/institute/icg/research/team-fraundorfer/people/jun-zhang)<sup>2</sup>, [Nils Bore](https://scholar.google.com/citations?user=wPea4DkAAAAJ&hl=en&oi=ao)<sup>3</sup>, [John Folkesson](https://www.kth.se/profile/johnf)<sup>1</sup>, [Anna Wåhlin](https://www.gu.se/en/about/find-staff/annawahlin)<sup>4</sup>
