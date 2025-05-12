@@ -1,10 +1,12 @@
-# [ICRA 2024] Benchmarking Classical and Learning-Based Multibeam Point Cloud Registration*
-The data is now released and can be found [here](https://kth-my.sharepoint.com/:u:/g/personal/torroba_ug_kth_se/EaNrC-Z23ChAkk5cOaYnNHIBPA7cyVxr5wcw7G2HAu8CBw?e=Cc1CFT).
-This repository accompanies the ICRA 2024 paper:
-### [Benchmarking Classical and Learning-Based Multibeam Point Cloud Registration](https://arxiv.org/pdf/2405.06279)
-[Li Ling](https://www.kth.se/profile/liling)<sup>1</sup>, [Jun Zhang](https://www.tugraz.at/institute/icg/research/team-fraundorfer/people/jun-zhang)<sup>2</sup>, [Nils Bore](https://scholar.google.com/citations?user=wPea4DkAAAAJ&hl=en&oi=ao)<sup>3</sup>, [John Folkesson](https://www.kth.se/profile/johnf)<sup>1</sup>, [Anna Wåhlin](https://www.gu.se/en/about/find-staff/annawahlin)<sup>4</sup>
+# [ICRA 2024] Benchmarking Classical and Learning-Based Multibeam Point Cloud Registration
 
-|<sup>1</sup>KTH Royal Institute of Technology|<sup>2</sup>TU Graz|<sup>3</sup>Ocean Infinity|<sup>4</sup>University of Gothenburg|
+This repository contains the official implementation of the IEEE International Conference on Robotics and Automation (ICRA) 2024 paper:
+
+> [**Benchmarking Classical and Learning-Based Multibeam Point Cloud Registration**](https://arxiv.org/pdf/2405.06279), <br>
+> [Li Ling](https://www.kth.se/profile/liling), [Jun Zhang](https://halajun.github.io/), [Nils Bore](https://scholar.google.com/citations?user=wPea4DkAAAAJ&hl=en&oi=ao), [John Folkesson](https://www.kth.se/profile/johnf), [Anna Wåhlin](https://www.gu.se/en/about/find-staff/annawahlin), <br>
+> IEEE International Conference on Robotics and Automation (ICRA), 2024
+
+**The accompanying multibeam registration dataset _DotsonEast_ can be accessed [here](https://kth-my.sharepoint.com/:u:/g/personal/torroba_ug_kth_se/EaNrC-Z23ChAkk5cOaYnNHIBPA7cyVxr5wcw7G2HAu8CBw?e=Cc1CFT).**
 
 For more information, please check out the [project website](https://luxiya01.github.io/mbes-registration-project-page/)
 
