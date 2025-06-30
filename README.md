@@ -6,7 +6,7 @@ This repository contains the official implementation of the IEEE International C
 > [Li Ling](https://www.kth.se/profile/liling), [Jun Zhang](https://halajun.github.io/), [Nils Bore](https://scholar.google.com/citations?user=wPea4DkAAAAJ&hl=en&oi=ao), [John Folkesson](https://www.kth.se/profile/johnf), [Anna Wåhlin](https://www.gu.se/en/about/find-staff/annawahlin), <br>
 > IEEE International Conference on Robotics and Automation (ICRA), 2024
 
-**The accompanying multibeam registration dataset _DotsonEast_ can be accessed [here](https://kth-my.sharepoint.com/:u:/g/personal/torroba_ug_kth_se/EaNrC-Z23ChAkk5cOaYnNHIBPA7cyVxr5wcw7G2HAu8CBw?e=Cc1CFT).**
+**The accompanying multibeam registration dataset _DotsonEast_ and the pretrained models can be accessed [here](https://kth-my.sharepoint.com/:f:/g/personal/liling_ug_kth_se/EpXHLtknBFVIpvBIdMcNSOMBu8SPQIOt7tUNeUvQwB-O8g?e=BsLWUN).**
 
 For more information, please check out the [project website](https://luxiya01.github.io/mbes-registration-project-page/)
 
